@@ -1,0 +1,193 @@
+An imposing mature, matronly woman, deliberately abandoning civilization behind her to enter the wilderness. She is naked because she has deliberately discarded everything that was given to her, including her clothing. The scene represents rebellion, departure, refusal, and choosing the unknown desert over the shelter.
+
+CRITICAL POSE AND FOOT GEOMETRY:
+
+She is captured mid-stride,
+ <key>
+
+Her body is moving away from the stone ruin and toward the desert.
+
+
+She is shown from approximately a 120-degree rear three-quarter angle, with the camera positioned behind and slightly to one side of her body.
+
+Her weight is transitioning forward as she leaves the threshold behind her.
+
+Visible in frame: her full unclothed back, partially covered by her hair, bare legs and feet, and the side profile of her face.
+
+Her head is turned partway back over one shoulder toward the camera while her body continues moving toward the desert.
+
+She is fully unclothed.
+
+The discarded clothing is represented by one single plain length of cloth, lying on the stone threshold behind her. It is small in the composition and may be partially cropped without importance.
+
+The threshold is the final fragment of civilization.
+Beyond it begins the desert.
+
+CAMERA AND COMPOSITION:
+
+Camera behind and slightly to one side of the figure, three-quarter rear angle, low-to-mid camera height, looking slightly upward to exaggerate her scale.
+
+The figure is tiny within the frame, positioned toward the far bottom-left.
+
+This is a true epic-scale landscape composition, not a portrait crop.
+
+The landscape must dominate the image.
+
+The threshold occupies only a small portion of the scene behind and beneath her.
+The immense wilderness begins immediately beyond it.
+
+The world ahead should feel vastly larger than the civilization she has left behind.
+
+ENVIRONMENT:
+
+A ruined stone threshold opens directly into an immense, silent, untouched wilderness.
+
+A vast empty cold desert stretches toward a distant mountain range on the horizon.
+
+The ground is dark, barren desert sand with traces of frost from the cold morning air.
+
+Low rolling plains lead toward the mountains.
+
+The distant mountains dwarf the human figure.
+
+A massive multilayered deep sky dominates approximately two-thirds of the frame.
+
+Dark storm clouds gather around and behind the distant mountains, suggesting an approaching storm.
+
+Cumulo-nimbus cloud formations.
+
+The atmosphere should communicate total isolation and immense scale.
+
+No dramatic architecture competes with the figure.
+
+The ruin behind her should feel like the last remnant of civilization.
+
+The wilderness ahead should feel older, larger, and completely indifferent to humanity.
+
+MOOD:
+
+Quiet.
+
+Melancholic.
+
+Resolute.
+
+Ancient.
+
+Mythic.
+
+Emotionally ambiguous.
+
+Powerful through restraint.
+
+The silence should feel louder than the action.
+
+Her departure should feel deliberate rather than frightened.
+
+LIGHTING:
+
+Cold diffuse light filtered through clouds.
+
+Subtle rim light defining the silhouette and body.
+
+Light reveals physical form rather than creating spectacle.
+
+No magical glow.
+
+No theatrical spotlight.
+
+No supernatural lighting effects.
+
+FIGURE:
+
+Mature, imposing, matronly woman.
+
+She should look like a real adult woman who has lived and experienced life, not a young girl and not a fashion-model archetype.
+
+Maternal presence.
+
+Beautiful without looking idealized or artificially perfected.
+
+Natural body proportions.
+
+Natural skin texture.
+
+Visible body hair.
+
+Subtle blemishes.
+
+Natural stretch marks.
+
+Subtle visible veins.
+
+Skin should feel lived-in, physical, and human rather than airbrushed or synthetic.
+
+VISUAL STYLE:
+
+Ancient epic history painting in the tradition of Romantic sublime landscape painters, using the scale and compositional logic associated with Caspar David Friedrich, combined with painterly figure treatment reminiscent of Waterhouse and Sargent-era brushwork.
+
+Grand painting scale.
+
+The landscape carries as much visual weight as the figure.
+
+Dark gothic palette.
+
+Umber and rust-brown earth tones.
+
+Muted gold appears only in a restrained break in the distant horizon light.
+
+Visible oil brushwork.
+
+Visible impasto texture.
+
+Heavy tenebrism-style contrast between the dark stormy sky and illuminated passages.
+
+Full painted-canvas texture.
+
+Canvas grain visible even in relatively flat areas.
+
+Nothing glossy.
+
+Nothing digitally clean.
+
+No polished CGI appearance.
+
+No photographic studio aesthetic.
+
+No character-first composition.
+
+The image should feel like a monumental old painting depicting a mythic moment of departure.
+
+SCALE AND IMAGE QUALITY:
+
+High dynamic range.
+
+HDR.
+
+8K.
+
+The figure remains small relative to the immense landscape.
+
+The landscape, sky, mountains, desert, and atmosphere are all essential parts of the composition.
+
+IMPORTANT SPATIAL RULE:
+
+The image has two different spatial coordinate systems that must not be confused.
+
+IMAGE SPACE:
+Foreground/background refers to what is visually closer to or farther from the camera.
+
+SUBJECT MOVEMENT SPACE:
+Leading/trailing refers to the woman's direction of movement toward the desert.
+
+Therefore:
+
+Her leading foot is farther from the camera and is already in the desert.
+
+Her trailing foot is closer to the camera and remains on the stone threshold.
+
+These are different concepts.
+
+The fact that the leading foot is farther from the camera does NOT make the trailing foot the leading foot.
+
+The desert begins beyond the stone threshold and must remain visually separate from the stone beneath the trailing foot.

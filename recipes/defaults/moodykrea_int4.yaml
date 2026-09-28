@@ -1,0 +1,24 @@
+# The real active gfx906-int4 pipeline (transcribed from "Luna's moodyKrea
+# test.json", 2026-09-28 export) -- Gfx906Int4UnetLoader instead of a plain
+# UNETLoaderMultiGPU+Transcode pair (loads straight into native int4, no
+# intermediate full-precision model), CLIP chained through
+# Gfx906Int4TranscodeCLIP. See develop/DESIGN.md for the recipe-merge model.
+# Device split per Luna's live VRAM check (2026-09-28): cuda:0 is lighter-
+# loaded (desktop/system only), cuda:1 has a game holding VRAM -- UNET
+# (needs ~13-14GB) goes on cuda:0, CLIP+VAE (a few GB each) on cuda:1.
+loaders:
+  unet: {node: Gfx906Int4UnetLoader, unet_name: krea2/museByStableYogi_v35Int4Extended.safetensors,
+         device: cuda:0}
+  clip:
+    - {node: CLIPLoaderMultiGPU, clip_name: qwen3vl_4b_bf16.safetensors, type: krea2, device: cuda:1}
+    - {node: Gfx906Int4TranscodeCLIP, activation_rotation: false}
+  vae: {node: VAELoaderMultiGPU, vae_name: qwenImageVAE_qwenImageVAE.safetensors, device: cuda:1}
+conditioning:
+  positive: {node: CLIPTextEncode, text: ""}
+  negative: {node: ConditioningZeroOut, source: positive}
+latent: {node: EmptyLatentImage, width: 1024, height: 576, batch_size: 1}
+sampler: {node: KSamplerAdvanced, add_noise: enable, noise_seed: 914872876216533,
+          steps: 8, cfg: 1, sampler_name: er_sde, scheduler: simple,
+          start_at_step: 0, end_at_step: 8, return_with_leftover_noise: enable}
+vae_decode: {node: VAEDecodeTiled, tile_size: 512, overlap: 64,
+             temporal_size: 64, temporal_overlap: 8}

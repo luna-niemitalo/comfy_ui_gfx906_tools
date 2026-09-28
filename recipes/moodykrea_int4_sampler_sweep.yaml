@@ -1,0 +1,6 @@
+kind: moodykrea_int4
+# The CLIPTextEncode node's own baked-in default prompt from the real
+# workflow (not the PrimitiveStringMultiline override that replaces it at
+# runtime) -- generic and fixed, so sweep results are comparable run to run.
+prompt: "A cinematic photo of a cat wearing steampunk goggles, dramatic lighting, 8K"
+latent: {width: 512, height: 512}

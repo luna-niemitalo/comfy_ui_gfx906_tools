@@ -1,0 +1,3 @@
+__pycache__/
+# generated images + sidecars/manifests; regenerable from recipes
+out/
