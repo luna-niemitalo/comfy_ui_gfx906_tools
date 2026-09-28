@@ -1,0 +1,17 @@
+gguf
+wheel
+torchsde
+imageio_ffmpeg
+noflash_attention
+matplotlib
+uv @ git+https://github.com/astral-sh/uv.git@charlie/wheel-variant-release
+
+./dependencies/pytorch/dist/torch-2.14.0a0+gitdab0373-cp313-cp313-linux_x86_64.whl
+./dependencies/torchaudio/dist/torchaudio-2.11.0a0+c0cbdb9-cp313-cp313-linux_x86_64.whl
+./dependencies/torchvision/dist/torchvision-0.29.0a0+4c0fc5a-cp313-cp313-linux_x86_64.whl
+
+#https://download.pytorch.org/whl/variant/torch-2.9.0-cp313-cp313-manylinux_2_28_x86_64-rocm6.3.whl #torch==2.9.0+rocm6.3
+#https://download.pytorch.org/whl/variant/triton_rocm-3.6.0-cp313-cp313-linux_x86_64.whl#sha256=d43b44f045d7f78d1dfe03b2debce36e0d756041a853633a2677ce5a890a269e # triton==3.6.0+rocm
+#https://download.pytorch.org/whl/variant/torchvision-0.24.0-cp313-cp313-manylinux_2_28_x86_64-rocm6.3.whl # torchvision==0.24.0+rocm6.3
+#https://download.pytorch.org/whl/variant/pytorch_triton_rocm-3.5.0-cp313-cp313-linux_x86_64.whl#sha256=bd2fab6dfb077dfc11fb581c5d33a0ee2d43ea13415530d095d1d5326d85d8b2 # pytorch-triton==3.5.0+rocm
+#./triton-3.4.0+git7976d68f-cp313-cp313-linux_x86_64.whl
