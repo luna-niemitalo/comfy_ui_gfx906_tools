@@ -39,6 +39,10 @@ comfy.cli_args.args.use_split_cross_attention = cli.attention == "split"
 comfy.cli_args.args.use_pytorch_cross_attention = cli.attention == "pytorch"
 comfy.cli_args.args.use_ck_attention = cli.attention == "ck"
 comfy.cli_args.args.force_fp16 = True
+# Only the node packs this bench calls: importing every custom node costs
+# ~1 min and GBs of host RAM per run (see the kswapd crash note in memory).
+comfy.cli_args.args.disable_all_custom_nodes = True
+comfy.cli_args.args.whitelist_custom_nodes = ["ComfyUI-Gfx906Int4", "ComfyUI-GGUF"]
 if cli.noflash:
     import noflash_attention  # noqa: F401,E402
 
@@ -59,7 +63,8 @@ def make_inputs(model, w, h, txt_tokens, device, dtype):
     x = torch.randn(1, dm.channels, h // 8, w // 8, device=device, dtype=dtype)
     t = torch.full((1,), 0.5, device=device, dtype=dtype)
     context = torch.randn(1, txt_tokens, dm.txtlayers * dm.txtdim, device=device, dtype=dtype)
-    return x, t, context
+    # Krea2.extra_conds runs the text path once per sampling call; mirror that
+    return x, t, dm.preprocess_text(context)
 
 
 def forward_ms(forward, iters):
@@ -104,11 +109,16 @@ def breakdown(dm, forward):
     int4_linear_cls = next(type(m) for m in dm.modules() if hasattr(m, "weight_q4"))
     int4_ops = sys.modules[int4_linear_cls.__module__]
     timer = SyncTimer()
+    forward()  # warmup outside the wrappers, so each category counts one forward
     orig_attn, orig_linear = krea2.optimized_attention_masked, int4_ops.int4_linear
     krea2.optimized_attention_masked = timer.wrap("attention", orig_attn)
     int4_ops.int4_linear = timer.wrap("int4_linear", orig_linear)
     try:
-        total_ms = forward_ms(forward, 1)
+        torch.cuda.synchronize()
+        t0 = time.perf_counter()
+        forward()
+        torch.cuda.synchronize()
+        total_ms = (time.perf_counter() - t0) * 1000
     finally:
         krea2.optimized_attention_masked, int4_ops.int4_linear = orig_attn, orig_linear
     parts = {k: round(v, 1) for k, v in timer.totals_ms().items()}
