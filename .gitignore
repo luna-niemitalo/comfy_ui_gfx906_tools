@@ -1,1 +1,3 @@
 __pycache__/
+csrc/*_hip.cpp
+csrc/*_hip.hip

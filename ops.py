@@ -160,9 +160,10 @@ def repack_q4_0_native(raw_bytes: torch.Tensor, out_features: int, in_features: 
     return packed, scale
 
 
-def int4_linear(x: torch.Tensor, w_packed: torch.Tensor, w_scale: torch.Tensor, block: int = 32, rotation_group: int = 0) -> torch.Tensor:
+def int4_linear(x: torch.Tensor, w_packed: torch.Tensor, w_scale: torch.Tensor, bias: torch.Tensor | None = None, rotation_group: int = 0) -> torch.Tensor:
     """x: [..., K] float. w_packed/w_scale: from quantize_pack_int4(weight), already
-    folded through the same rotation via rotation_group (0 = none). Returns [..., N] float32."""
+    folded through the same rotation via rotation_group (0 = none). bias, if
+    given, must already be x.dtype. Returns [..., N] in x.dtype."""
     ext = _get_ext()
     orig_shape = x.shape
     K = orig_shape[-1]
@@ -172,8 +173,8 @@ def int4_linear(x: torch.Tensor, w_packed: torch.Tensor, w_scale: torch.Tensor, 
         R = get_group_rotation(K, rotation_group, x2d.device)
         x2d = apply_group_rotation(x2d, R, rotation_group)
 
-    a_packed, a_scale = quantize_pack_int4(x2d, block)
-    out = ext.int4_gemm_scaled(a_packed, a_scale, w_packed, w_scale, K)
+    a_packed, a_scale = ext.quantize_int4(x2d)
+    out = ext.gemm_int4(a_packed, a_scale, w_packed, w_scale, bias, x.dtype)
     return out.reshape(*orig_shape[:-1], w_packed.shape[0])
 
 
@@ -225,8 +226,5 @@ class Gfx906Int4Ops(comfy.ops.disable_weight_init):
             # handed CPU tensors and RuntimeErrors on "inputs must be on device".
             weight_q4 = self.weight_q4.to(x.device)
             weight_scale = self.weight_scale.to(x.device)
-            out = int4_linear(x, weight_q4, weight_scale, BLOCK, self.rotation_group)
-            out = out.to(x.dtype)
-            if self.bias is not None:
-                out = out + self.bias.to(x.device, x.dtype)
-            return out
+            bias = self.bias.to(x.device, x.dtype) if self.bias is not None else None
+            return int4_linear(x, weight_q4, weight_scale, bias, self.rotation_group)
