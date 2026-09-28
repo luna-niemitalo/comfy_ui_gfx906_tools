@@ -275,6 +275,12 @@ def _transcode_linears(root_module, block_size, rotate):
             setattr(parent, attr, new_linear)
             converted += 1
 
+    # The replaced full-precision weights stay reserved in torch's caching
+    # allocator (Qwen3-VL-4B: 11 GB reserved vs 3.1 GB live) -- hand them back.
+    # `named` and the loop variable still reference the old modules; drop them
+    # first or nothing is free yet.
+    del named, module
+    torch.cuda.empty_cache()
     return converted, skipped, source_counts
 
 
