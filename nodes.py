@@ -559,5 +559,5 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "Gfx906Int4TranscodeCLIP": "Gfx906 Int4 Transcode CLIP (native kernel, any source)",
     "Gfx906Int4Patch": "Gfx906 Int4 Quantize (test)",
     "Gfx906Int4UnetLoader": "Gfx906 Int4 UNet Loader (native kernel)",
-    "Gfx906RowSplitKrea2": "Gfx906 Row Split Krea2 (2 GPUs)",
+    "Gfx906RowSplitKrea2": "Gfx906 Split Krea2 (2 GPUs)",
 }

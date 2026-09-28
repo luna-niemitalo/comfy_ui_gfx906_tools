@@ -18,6 +18,9 @@ at 2560x1440, a few ms over PCIe vs ~300 ms of compute per block):
 Rank 0 runs through the normal wrapper chain on the calling thread; rank 1
 calls the replica's _forward on a worker thread. The two meet at a barrier
 once per block.
+
+Batches of 2+ skip all of the above: each rank runs half the batch
+unmodified, with no exchange.
 """
 import copy
 import threading
@@ -100,6 +103,10 @@ def _to(value, device):
     return value.to(device) if torch.is_tensor(value) else value
 
 
+def _batch_slice(value, batch, part):
+    return value[part] if torch.is_tensor(value) and value.ndim > 0 and value.shape[0] == batch else value
+
+
 class _RowSplit:
     def __init__(self, device, min_image_tokens):
         self.device = torch.device(device)
@@ -108,51 +115,73 @@ class _RowSplit:
 
     def __call__(self, executor, x, timesteps, context, attention_mask, ref_latents, transformer_options, **kwargs):
         dm = executor.class_obj
-        h, w = x.shape[-2], x.shape[-1]
-        image_tokens = (h // dm.patch) * (w // dm.patch)
-        # ref latents would be appended whole on both ranks (duplicated keys);
-        # small images don't amortize the per-block barrier. Both run unsplit.
-        if ref_latents or image_tokens < self.min_image_tokens:
+        # ref latents would be appended whole on both ranks (duplicated keys)
+        if ref_latents:
             return executor(x, timesteps, context, attention_mask, ref_latents, transformer_options, **kwargs)
-
         if self.replica is None:
             self.replica = _replicate(dm, self.device)
+
+        # batch >= 2 (several images, or cond+uncond under cfg): each GPU takes
+        # half the batch, fully independent -- no per-block exchange at all
+        batch = x.shape[0]
+        if batch >= 2:
+            half0, half1 = slice(0, -(-batch // 2)), slice(-(-batch // 2), batch)
+            args0 = [_batch_slice(v, batch, half0) for v in (x, timesteps, context, attention_mask)]
+            args1 = [_batch_slice(v, batch, half1) for v in (x, timesteps, context, attention_mask)]
+            kwargs0 = {k: _batch_slice(v, batch, half0) for k, v in kwargs.items()}
+            kwargs1 = {k: _batch_slice(v, batch, half1) for k, v in kwargs.items()}
+            return self._run_pair(executor, args0, kwargs0, transformer_options, args1, kwargs1, transformer_options, 0, None)
+
+        # small images don't amortize the per-block barrier
+        h, w = x.shape[-2], x.shape[-1]
+        if (h // dm.patch) * (w // dm.patch) < self.min_image_tokens:
+            return executor(x, timesteps, context, attention_mask, ref_latents, transformer_options, **kwargs)
 
         # Latent row where rank 1 starts: half the token rows, on a patch boundary
         split = max(-(-h // dm.patch) // 2, 1) * dm.patch
         exchange = _KVExchange()
         opts0 = _with_patches(transformer_options, _rank_patches(0, 0, exchange))
         opts1 = _with_patches(transformer_options, _rank_patches(1, split // dm.patch, exchange))
+        args0 = [x[..., :split, :], timesteps, context, attention_mask]
+        args1 = [x[..., split:, :], timesteps, context, attention_mask]
+        return self._run_pair(executor, args0, kwargs, opts0, args1, kwargs, opts1, -2, exchange)
+
+    def _run_pair(self, executor, args0, kwargs0, opts0, args1, kwargs1, opts1, cat_dim, exchange):
+        """Rank 0 through the wrapper chain here, rank 1 on the replica in a
+        worker thread; outputs concatenated along cat_dim. A failing rank
+        aborts the exchange barrier so its peer can't wait forever."""
         peer = {}
 
         def run_peer():
             try:
                 with torch.cuda.device(self.device), torch.inference_mode():
                     peer["out"] = self.replica._forward(
-                        x[..., split:, :].to(self.device), timesteps.to(self.device), context.to(self.device),
-                        _to(attention_mask, self.device), None, opts1,
-                        **{k: _to(v, self.device) for k, v in kwargs.items()})
+                        *[_to(v, self.device) for v in args1], None, opts1,
+                        **{k: _to(v, self.device) for k, v in kwargs1.items()})
             except BaseException as e:
                 peer["error"] = e
-                exchange.barrier.abort()
+                if exchange is not None:
+                    exchange.barrier.abort()
 
-        thread = threading.Thread(target=run_peer, name="gfx906-row-split")
+        thread = threading.Thread(target=run_peer, name="gfx906-split")
         thread.start()
         try:
-            out0 = executor(x[..., :split, :], timesteps, context, attention_mask, None, opts0, **kwargs)
+            out0 = executor(*args0, None, opts0, **kwargs0)
         except BaseException:
-            exchange.barrier.abort()
+            if exchange is not None:
+                exchange.barrier.abort()
             thread.join()
             raise
         thread.join()
         if "error" in peer:
             raise peer["error"]
-        return torch.cat((out0, peer["out"].to(x.device)), dim=-2)
+        return torch.cat((out0, peer["out"].to(out0.device)), dim=cat_dim)
 
 
 class Gfx906RowSplitKrea2:
-    """MODEL -> MODEL. Runs each Krea2 sampling step on two GPUs, each
-    taking half the image rows. Replicates the diffusion model onto
+    """MODEL -> MODEL. Runs each Krea2 sampling step on two GPUs: half the
+    batch each when batch >= 2 (several images, or cond+uncond with cfg),
+    otherwise half the image rows each. Replicates the diffusion model onto
     `device` on first use (int4 Krea2: ~7.5 GB there)."""
 
     @classmethod
@@ -162,14 +191,14 @@ class Gfx906RowSplitKrea2:
             "required": {
                 "model": ("MODEL",),
                 "device": (devices, {"default": devices[-1]}),
-                "min_image_tokens": ("INT", {"default": 2048, "min": 0, "max": 1 << 20, "tooltip": "Below this many image tokens (latent pixels / 4) the step runs on one GPU: the per-block sync costs more than it saves."}),
+                "min_image_tokens": ("INT", {"default": 2048, "min": 0, "max": 1 << 20, "tooltip": "Single-image steps below this many image tokens (latent pixels / 4) run on one GPU: the per-block sync costs more than it saves. Batches of 2+ always split by batch."}),
             }
         }
 
     RETURN_TYPES = ("MODEL",)
     FUNCTION = "patch"
     CATEGORY = "gfx906"
-    TITLE = "Gfx906 Row Split Krea2 (2 GPUs)"
+    TITLE = "Gfx906 Split Krea2 (2 GPUs)"
 
     def patch(self, model, device, min_image_tokens):
         model = model.clone()
