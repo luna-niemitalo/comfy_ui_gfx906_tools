@@ -170,8 +170,9 @@ def int4_linear(x: torch.Tensor, w_packed: torch.Tensor, w_scale: torch.Tensor, 
     x2d = x.reshape(-1, K)
 
     if rotation_group:
+        # R is fp32 (the same matrix was folded into the weights in fp32)
         R = get_group_rotation(K, rotation_group, x2d.device)
-        x2d = apply_group_rotation(x2d, R, rotation_group)
+        x2d = apply_group_rotation(x2d.float(), R, rotation_group)
 
     a_packed, a_scale = ext.quantize_int4(x2d)
     out = ext.gemm_int4(a_packed, a_scale, w_packed, w_scale, bias, x.dtype)
