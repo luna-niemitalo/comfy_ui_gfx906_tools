@@ -302,7 +302,6 @@
         pkgs.glib
         pkgs.gcc
         pkgs.vulkan-loader
-        pkgs.openblas
         pkgs.gfortran
         pkgs.fftw
         pkgs.openssl
@@ -326,7 +325,16 @@
         map (pkg: pkg.drv) (lib.filter (pkg: pkg.addInclude) rocmLibs)
       );
 
-      ld_library_path = lib.makeLibraryPath runtimeLibs;
+      # torch's CPU BLAS calls pass 32-bit ints, but nixpkgs' default openblas is
+      # ILP64 on x86_64 (INTERFACE64) -- every fp32 CPU matmul segfaults with it
+      # (e.g. Qwen3-VL rope freqs on a CPU text encoder). The self-built wheel's
+      # RUNPATH still names an ILP64 openblas; listing this LP64 build first on
+      # LD_LIBRARY_PATH overrides that without rebuilding torch on BLAS updates.
+      cpuBlasLibs = [ pkgs.openblasCompat ];
+
+      cpuBlasDebug = ''echo "CPU BLAS (LP64)  = ${pkgs.openblasCompat}/lib"'';
+
+      ld_library_path = lib.makeLibraryPath (cpuBlasLibs ++ runtimeLibs);
 
       rocmLibraryPath = lib.makeLibraryPath (map (pkg: pkg.drv) (lib.filter (pkg: pkg.addLib) rocmLibs));
 
@@ -501,6 +509,7 @@
                 echo "ROCM_ROOT        = $ROCM_ROOT"
                 echo "HIPBLASLT_ROOT   = $HIPBLASLT_ROOT"
                 echo "MIOPEN_ROOT      = $MIOPEN_ROOT"
+                ${cpuBlasDebug}
                 echo
                 echo "Ready."
 
