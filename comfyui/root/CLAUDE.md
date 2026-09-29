@@ -16,7 +16,10 @@ Run Krea2 (and other DiT image models) fast on 2x Radeon VII (gfx906) via a nati
   - `Gfx906RowSplitKrea2` node ("Gfx906 Split Krea2"): two-GPU split per step — by
     batch when batch>=2 (bit-identical, ~1.9x), by image rows otherwise (K/V swapped per
     block, ~1.75-1.9x). Row split error equals a pure key-reorder control (~3.8% RMS =
-    this int4 model's fp16-noise floor).
+    this int4 model's fp16-noise floor). Second GPU defaults to `auto` (not the latent's
+    GPU, most free VRAM); falls back to one GPU when the peer can't hold the ~7.5 GB
+    replica + 2.5 GB working memory; logs `[Gfx906 Split] <plan>` on change.
+    Peer VRAM pressure is cheap: 3.75 GB parked there costs ~3%.
   - Krea2 text fusion runs once per sampling call (`extra_conds`), bit-identical.
   - Step times, int4 muse Krea2, quad attention, 128 text tokens:
     128² 165 ms · 1024x576 2.12 s (1 GPU) / 1.23 s (2 GPU) · 2560x1440 20.9 s / 11.1 s.
@@ -38,7 +41,10 @@ Run Krea2 (and other DiT image models) fast on 2x Radeon VII (gfx906) via a nati
   Batch split verified bit-identical. Fixed from Luna's workflow run: int4 text encoder
   fp16/fp32 rotation mismatch, text-encoder VRAM (11 GB reserved -> 3.5 GB), CPU fp32
   matmul segfault (flake now puts LP64 `openblasCompat` first on LD_LIBRARY_PATH).
-  Awaiting Luna's re-run of the real UI workflow.
+  Luna's UI run, 2560x1440 8 steps, 2 GPUs: 125 s total (13.15 s/it; baseline 415 s).
+  Bench with 600 text tokens: 23.9 s/step 1 GPU, 13.06 s 2 GPUs.
+  Split node now auto-picks the second GPU and falls back when it's full -- not yet
+  tried by Luna in the UI.
 - **Next step**: design an int8 attention kernel (Sage-style: int8 Q/K per-block,
   K mean-smoothing, fp16 PV) and bench it against quad attention at 2560x1440.
 - **Hazards**:
