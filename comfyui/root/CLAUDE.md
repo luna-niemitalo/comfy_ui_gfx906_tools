@@ -285,7 +285,28 @@ Run Krea2 (and other DiT image models) fast on 2x Radeon VII (gfx906) via a nati
         (checked with a stub VAE: every bad input names expected vs actual). Headless tests
         (node_test.py): fixed 2560x1440 69 s; progressive + simulated Stop after 4/10 steps,
         request cleared; progressive to convergence: 2560x1440 output stopped at step 9/10
-        (internal 3584x2016, 35.5 dB), 217 s, deterministic (steps match the Stop run). NOT yet tried in the UI (the JS button and route only exist with a
+        (internal 3584x2016, 35.5 dB), 217 s, deterministic (steps match the Stop run).
+     j. Speed exploration of linear growth (Luna's list: GPU-resident upscale, one-GPU vs
+        overlap, tiny VAE, latent resize; + reuse of previous results):
+        - upscale_bench.py (VAEs only): host round trip + 8-bit PIL Lanczos vs all-GPU float
+          Lanczos: SAME time (4.75 / 11.8 s at 2.6K / 4K) and 53 dB apart -- the full VAE's
+          decode+encode (MIOpen off) is the cost, not transfers. Tiny VAE (lighttaew2_1) both
+          ways 2.4x faster, 36-39 dB; tiny encode only 41-44 dB, 1.4x; latent resize 0 s, 27-29 dB.
+        - Linear 4K growth, per path (scale_test +path): full VAE 219 s = denoise ~80%,
+          upscale ~47 s (9.2 s at 4K), per-call sampling overhead ~0.05 s (single sampling
+          call for all steps: nothing to gain). tiny_vae 212 s, detail_720 9.10 vs 9.43, drift
+          24.0 vs 24.4. Latent: noise stuck ~1.7, never converged -- Luna: scrap (removed).
+        - Async overlap already happens: the VAE (cuda:1) tail overlaps the denoise start; a
+          sync for exact timing cost 12 s (removed).
+        - Denoise cost follows tile count (~2 s/tile on 2 GPUs), linear growth climbs in
+          stairs. Settled-tile skipping (skip tiles whose region changed < x of max last step,
+          x = 0.3 / 0.5): never skipped a tile -- every tile changes > 0.5x max. Removed.
+        Kept in the node: GPU-resident upscale with float torch Lanczos, decode shared between
+        Progressive's check and the next step, upscale_path vae|tiny_vae (+ tiny_vae input).
+        Remaining lever is the denoise itself (tiles x per-tile cost): e.g. fewer/larger
+        tiles, or the int4/attention work. Committed (node c8a1577, develop e32bd85);
+        re-tested: fixed 2560x1440 66.9 s (was 69.4), progressive Stop after 4/10 steps,
+        request cleared. NOT yet tried in the UI (the JS button and route only exist with a
         running server). Later: int4 treatment (bf16 is fp32 math
         on gfx906). Earlier notes: PiD node registered via nodes.load_custom_node (the
         experiments' whitelist excludes it): compose 1024x576 -> PiDDecode qwenimage 2kto4k -> 4096x2304
