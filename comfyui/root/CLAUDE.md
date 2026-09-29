@@ -25,8 +25,12 @@ Run Krea2 (and other DiT image models) fast on 2x Radeon VII (gfx906) via a nati
     128² 165 ms · 1024x576 2.12 s (1 GPU) / 1.23 s (2 GPU) · 2560x1440 20.9 s / 11.1 s.
     Original 2560x1440: ~52 s/step.
   - At 2560x1440, 1 GPU: attention ~53%, int4 linears ~42%, other ~6%.
+  - int4 GEMM split-K (auto when output tiles < resident WGs): 1.5-2x on narrow
+    projections at M<=192, but a 128² step only 165.5 -> 164 ms.
+  - At 128², the prompt dominates: 128 text tokens 165 ms/step, 600 tokens 541 ms
+    (int4 linears ~80% of either). 512²: 923 / 1387 ms.
 - **Target**: faster attention on gfx906 (int8 QK^T on v_dot4, Sage-style) — not started.
-  Small-M GEMM (split-K) for thumbnails — not started.
+  Higher int4 GEMM core rate (~40 of ~110 TOPS peak) — the lever for small sizes; not started.
 - Anything not listed under Current does not exist yet. Do not describe it as working.
 
 ## Boundaries
