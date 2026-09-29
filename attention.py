@@ -24,6 +24,7 @@ _LOG2E = 1.4426950408889634
 # (2026-09-29, 600 text tokens: 128² = 664 tokens 565 vs 542 ms/step with
 # ComfyUI's quad attention; 256² = 856 tokens already 742 vs 764).
 MIN_FUSED_TOKENS = 768
+CALIBRATION_MODES = ("persistent", "per_run")
 
 
 def _quant_tokens(x, bits):
@@ -96,8 +97,13 @@ def _gqa_repeat(diffusion_model):
     return attn.heads // attn.kvheads if attn is not None else 1
 
 
-def _make_override(qk, pv, skip_below, gqa_repeat, sparse_tau, max_missed):
-    sparsity = block_sparse.SparsityState(sparse_tau, max_missed, block_rows(qk)) if sparse_tau > 0 else None
+def _make_override(qk, pv, skip_below, gqa_repeat, sparse_tau, max_missed, calibration, diffusion_model):
+    sparsity = None
+    if sparse_tau > 0 and calibration == "persistent":
+        sparsity = block_sparse.CachedSparsityState(sparse_tau, max_missed, block_rows(qk), diffusion_model,
+                                                    block_sparse.calibration_cache())
+    elif sparse_tau > 0:
+        sparsity = block_sparse.SparsityState(sparse_tau, max_missed, block_rows(qk))
     max_tiles = ops._get_ext().attention_max_tiles()
 
     def override(func, q, k, v, heads, mask=None, attn_precision=None, skip_reshape=False,
@@ -135,7 +141,8 @@ class Gfx906FusedAttention:
                 "pv": (list(PV_MODES), {"default": "u8", "tooltip": "softmax.V precision. u8 uses a per-64-key-tile scale."}),
                 "skip_below": ("FLOAT", {"default": 1e-4, "min": 0.0, "max": 0.1, "step": 1e-5, "tooltip": "Skip a key tile's P.V when its largest attention weight is below this fraction of every row's peak (0 = never)."}),
                 "sparse_tau": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 0.999, "step": 0.001, "tooltip": "Block-sparse attention: skip whole (query block, key tile) pairs outside the predicted top tau of attention mass (0 = off; 0.995 tested). The first step of a run is dense and decides per layer and head where the prediction is safe."}),
-                "max_missed": ("FLOAT", {"default": 0.02, "min": 0.0, "max": 0.2, "step": 0.005, "tooltip": "Block-sparse calibration: a head runs sparse only if the prediction drops at most this fraction of its exact attention mass on the first step."}),
+                "max_missed": ("FLOAT", {"default": 0.02, "min": 0.0, "max": 0.2, "step": 0.005, "tooltip": "Block-sparse calibration: a head runs sparse only if the prediction drops at most this fraction of its exact attention mass."}),
+                "calibration": (list(CALIBRATION_MODES), {"default": "persistent", "tooltip": "persistent: learn each model + image size over its first 3 runs (dense, output unchanged), keep the worst case on disk (ComfyUI user dir), then run sparse with no calibration cost. per_run: calibrate on the first step of every run (~5 s at 2560x1440)."}),
             }
         }
 
@@ -144,9 +151,10 @@ class Gfx906FusedAttention:
     CATEGORY = "gfx906"
     TITLE = "Gfx906 Fused Attention"
 
-    def patch(self, model, qk, pv, skip_below, sparse_tau, max_missed):
-        gqa_repeat = _gqa_repeat(model.model.diffusion_model)
+    def patch(self, model, qk, pv, skip_below, sparse_tau, max_missed, calibration="persistent"):
+        diffusion_model = model.model.diffusion_model
+        gqa_repeat = _gqa_repeat(diffusion_model)
         model = model.clone()
         model.model_options["transformer_options"]["optimized_attention_override"] = _make_override(
-            qk, pv, skip_below, gqa_repeat, sparse_tau, max_missed)
+            qk, pv, skip_below, gqa_repeat, sparse_tau, max_missed, calibration, diffusion_model)
         return (model,)

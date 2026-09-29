@@ -14,7 +14,10 @@ dense, and on sampled query blocks measures the exact attention mass the
 prediction would drop, per head. Heads that drop more than max_missed stay
 dense for the rest of the run. A rising sigma marks a new run and resets.
 """
+import hashlib
+import json
 import logging
+import os
 import threading
 
 import torch
@@ -86,6 +89,120 @@ def missed_mass(q, k, keep, rows):
     return missed
 
 
+class CalibrationCache:
+    """Worst-seen missed mass per (layer, head), persisted across runs and restarts.
+
+    Why worst-seen over several runs: head verdicts drift over the steps of a run more
+    than across prompts. Step-0 verdicts of the same run let 3-9% of head-steps exceed 2%
+    missed; the worst over all steps of 3 other runs let 0.4-2.8% through
+    (2026-09-29, develop/experiments/2026-09-29/analyze_missed.py).
+
+    File: <ComfyUI user dir>/__gfx906_int4/attention_calibration.json (a system user
+    dir: never served over HTTP, untouched by model/browser cache wipes). Written
+    atomically (tmp + rename) and merged with what is on disk, so two ComfyUI processes
+    only ever raise values.
+    Entry key: model fingerprint | image tokens | query rows per block | tau. Missed mass
+    is stored rather than verdicts, so max_missed can change without relearning.
+    Entry value: {"runs": learning runs seen, "missed": {layer: [worst per head]}}."""
+
+    VERSION = 1
+
+    def __init__(self, path):
+        self.path = path
+        self.lock = threading.Lock()
+        self.entries = self._load()
+        self.dirty = False
+        logging.info(f"[Gfx906 Attention] calibration cache {path}: {len(self.entries)} entries")
+
+    def _load(self):
+        # IN, non-critical: a missing, foreign or corrupt file means relearning, not failing
+        try:
+            with open(self.path) as f:
+                data = json.load(f)
+        except FileNotFoundError:
+            return {}
+        except (OSError, ValueError) as e:
+            logging.warning(f"[Gfx906 Attention] calibration cache {self.path} unreadable ({e}); starting empty")
+            return {}
+        if not isinstance(data, dict) or data.get("version") != self.VERSION or not isinstance(data.get("entries"), dict):
+            logging.warning(f"[Gfx906 Attention] calibration cache {self.path}: expected version {self.VERSION}, "
+                            f"got {data.get('version') if isinstance(data, dict) else type(data).__name__}; starting empty")
+            return {}
+        entries = {}
+        for key, entry in data["entries"].items():
+            try:
+                entries[key] = {"runs": int(entry["runs"]),
+                                "missed": {layer: [float(v) for v in heads] for layer, heads in entry["missed"].items()}}
+            except (KeyError, TypeError, ValueError, AttributeError) as e:
+                logging.warning(f"[Gfx906 Attention] calibration cache: dropping malformed entry {key!r} ({e})")
+        return entries
+
+    def entry(self, key):
+        with self.lock:
+            return self.entries.setdefault(key, {"runs": 0, "missed": {}})
+
+    def count_run(self, key):
+        with self.lock:
+            self.entries[key]["runs"] += 1
+            self.dirty = True
+
+    def record(self, key, layer, missed):
+        """Raise the stored worst missed mass of layer's heads to missed ([H] list)."""
+        with self.lock:
+            layers = self.entries[key]["missed"]
+            old = layers.get(layer)
+            layers[layer] = missed if old is None else [max(a, b) for a, b in zip(old, missed)]
+            self.dirty = True
+
+    def save(self):
+        with self.lock:
+            if not self.dirty:
+                return
+            merged = self._merge(self._load(), self.entries)
+            os.makedirs(os.path.dirname(self.path), exist_ok=True)
+            tmp = f"{self.path}.{os.getpid()}.tmp"
+            with open(tmp, "w") as f:
+                json.dump({"version": self.VERSION, "entries": merged}, f)
+            os.replace(tmp, self.path)
+            self.entries, self.dirty = merged, False
+
+    @staticmethod
+    def _merge(disk, mine):
+        merged = {key: {"runs": e["runs"], "missed": dict(e["missed"])} for key, e in disk.items()}
+        for key, e in mine.items():
+            m = merged.setdefault(key, {"runs": 0, "missed": {}})
+            m["runs"] = max(m["runs"], e["runs"])
+            for layer, heads in e["missed"].items():
+                old = m["missed"].get(layer)
+                m["missed"][layer] = heads if old is None else [max(a, b) for a, b in zip(old, heads)]
+        return merged
+
+
+_caches = {}
+
+
+def calibration_cache():
+    """One CalibrationCache per file per process (every patched model shares it)."""
+    import folder_paths
+    path = os.path.join(folder_paths.get_system_user_directory("gfx906_int4"), "attention_calibration.json")
+    if path not in _caches:
+        _caches[path] = CalibrationCache(path)
+    return _caches[path]
+
+
+def model_fingerprint(diffusion_model):
+    """sha1 over the names, shapes and first 64 KiB of the 4 largest tensors: survives
+    renames and moves of the file, changes with different weights. (LoRA patches are not
+    included: they shift attention a little; worst-seen merging absorbs that.)"""
+    tensors = sorted(list(diffusion_model.named_parameters()) + list(diffusion_model.named_buffers()),
+                     key=lambda nt: (-nt[1].numel(), nt[0]))[:4]
+    h = hashlib.sha1()
+    for name, t in tensors:
+        h.update(f"{name}{tuple(t.shape)}{t.dtype}".encode())
+        h.update(t.detach().reshape(-1).view(torch.uint8)[:65536].cpu().numpy().tobytes())
+    return h.hexdigest()[:16]
+
+
 class SparsityState:
     """Per override: which heads of each (layer, device, shape) may run
     sparse in the current sampling run."""
@@ -130,4 +247,72 @@ class SparsityState:
                          f"{1 - final.float().mean().item():.0%} of blocks skipped, "
                          f"missed mass median {missed.median().item():.2%}")
             return None
+        return (keep | ~sparse[None, :, None, None]).to(torch.uint8)
+
+
+# Runs learned dense (every call measured, output identical to dense) before a cache entry
+# is trusted: the leave-one-out test above used 3 other runs.
+LEARN_RUNS = 3
+
+
+class CachedSparsityState:
+    """Like SparsityState, but head verdicts come from CalibrationCache: the first
+    LEARN_RUNS runs of an entry run dense and record every call's missed mass; later
+    runs are sparse where the worst-seen missed mass <= max_missed, with no calibration
+    cost. A layer the entry has never seen is measured (dense) on first use."""
+
+    def __init__(self, tau, max_missed, rows, diffusion_model, cache):
+        self.tau, self.max_missed, self.rows = tau, max_missed, rows
+        self.diffusion_model, self.cache = diffusion_model, cache
+        self.lock = threading.Lock()
+        self.fingerprint = None
+        self.last_sigma = {}
+        self.announced = set()
+
+    def _key(self, q, k, transformer_options):
+        with self.lock:
+            if self.fingerprint is None:
+                self.fingerprint = model_fingerprint(self.diffusion_model)
+        img = transformer_options.get("img_slice")
+        tokens = img[1] - img[0] if img is not None else k.shape[2]
+        return f"{self.fingerprint}|img{tokens}|rows{self.rows}|tau{self.tau:g}"
+
+    def _count_run(self, key, transformer_options):
+        """A sigma above this entry's last one starts a run (per entry, not per device:
+        the two split halves see the same sigma and count it once)."""
+        sigmas = transformer_options.get("sigmas")
+        if sigmas is None:
+            return
+        sigma = float(sigmas.flatten()[0])
+        with self.lock:
+            last = self.last_sigma.get(key)
+            self.last_sigma[key] = sigma
+        if last is None or sigma > last:
+            self.cache.count_run(key)
+            self.announced.discard(key)
+
+    def keep(self, q, k, transformer_options):
+        block = transformer_options.get("block_index")
+        if block is None:
+            return None
+        last_layer = block == transformer_options.get("total_blocks", 0) - 1
+        layer = str(block) if transformer_options.get("block_type") is None else f"{transformer_options['block_type']}:{block}"
+        key = self._key(q, k, transformer_options)
+        entry = self.cache.entry(key)
+        self._count_run(key, transformer_options)
+        keep = predict_keep(q, k, self.tau, self.rows)
+        worst = entry["missed"].get(layer)
+        if entry["runs"] <= LEARN_RUNS or worst is None:
+            self.cache.record(key, layer, missed_mass(q, k, keep, self.rows).tolist())
+            if last_layer:
+                self.cache.save()
+            return None
+        sparse = torch.tensor(worst, device=q.device) <= self.max_missed
+        if key not in self.announced:
+            self.announced.add(key)
+            n_sparse = sum(sum(v <= self.max_missed for v in heads) for heads in entry["missed"].values())
+            n_heads = sum(len(heads) for heads in entry["missed"].values())
+            logging.info(f"[Gfx906 Attention] cached calibration {key} (learned over {LEARN_RUNS} runs, "
+                         f"{entry['runs']} seen): "
+                         f"{n_sparse}/{n_heads} heads sparse")
         return (keep | ~sparse[None, :, None, None]).to(torch.uint8)
