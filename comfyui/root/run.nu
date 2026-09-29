@@ -18,6 +18,9 @@
 #$env.TORCH_USE_HIP_DSA = "1"  # Allow SAM3 to use GPU if available
 #$env.AMD_SERIALIZE_KERNEL = "3"
 #$env.AMD_ENABLE_MIOPEN_ENV = "0"  # Enable MIOpen environment variable support
+# Backstop if anything re-enables MIOpen (--disable-miopen below turns it off): heuristic kernel
+# pick, no per-shape search.
+$env.MIOPEN_FIND_MODE = "FAST"
 $env.SPEED_DEBUG = "0"
 $env.SPEED_DEBUG_DIR = "/media/luna/work/cache/speed-debug"
 
@@ -102,6 +105,10 @@ let args = [
   # falls back to the linear latent2rgb preview if the file is missing.
   # Without this flag the server default is no previews.
   "--preview-method=taesd"
+  # No MIOpen: each new conv size cost ~8 s of kernel building (then 0.39 s per VAE decode at
+  # ~1400x850), never pays off for changing sizes, and has been flaky here. Without it: no
+  # per-size cost, ~1.2 s per decode (develop/experiments/2026-09-29/vae_shape_test.py).
+  "--disable-miopen"
   # Memory behavior
   #"--async-offload=8"  # Async weight offloading with 8 streams
                        # Helps hide PCIe latency on large models
