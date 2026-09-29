@@ -158,8 +158,25 @@ Run Krea2 (and other DiT image models) fast on 2x Radeon VII (gfx906) via a nati
      Ran (1 GPU, int4/u8 attention; direct 8 steps at 2560x1440 ~156 s, detail 15.6):
      hires_s0.5 113 s / 11.2, hires_s0.5_anchor 114 s / 10.8, hires_s0.7_anchor 135 s /
      13.1, progressive_2stage (1792x1008 s0.55x3 -> 2560x1440 s0.45x3) 119 s / 13.2.
-     Awaiting Luna's visual verdict (splotch-free? anchor keeps composition? detail?)
-     -> decides the node's knobs/defaults. Reference: SPEED
+     Luna's verdict: splotchiness gone, but mirror images / afterimages ("kaleidoscopic"),
+     worse than SPEED. Likely cause: RoPE extrapolation (positions beyond the ~1 MP
+     training grid; Krea2 image ids = integer (row, col) token grid, theta 1000) plus
+     off-manifold bicubic latent upscale. Plan (Luna: "go ahead", this order):
+     a. RoPE position interpolation via Krea2's `post_input` patch (scale img_ids
+        rows/cols by sqrt(4096/tokens); DyPE-style `s**(sigma**2)`): `rope_test.py`
+        (direct 8-step 2560x1440 and hires_s0.5_anchor, each pi/dype) -> RUNNING.
+     b. Tiled detail pass at native tile size (MultiDiffusion blend of overlapping
+        ~1 MP tiles per step, low band anchored; tiles split across both GPUs).
+        Luna's refinement: caption the composition (or per tile) with a VLM and prune
+        prompt parts not visible, or a dedicated manual/derived detail prompt.
+     c. Pixel-space upscale option (decode -> Lanczos/ESRGAN -> encode) -- Luna wants it
+        as a node option.
+     d. Consistent noise across scales (Luna's idea ~ DemoFusion skip residual).
+     e. PiD 4x decoder: Luna approved (transformers fine -- already in venv 5.17,
+        huggingface_hub present, accelerate only for the optional captioner). Files
+        downloading to scratchpad `pid_models/{diffusion_models,text_encoders}/nvidia_pid/`
+        (pid_qwenimage_1024_to_4096_4step_bf16 2.7 GB, gemma_2_2b_it_elm_bf16 5.2 GB);
+        Luna moves them to /media/luna/models. Later: int4 treatment like the UNet. Reference: SPEED
      (`custom_nodes/ComfyUI-SPEED`, spectral expansion + kappa re-timing, no anchor, no
      curve control). Goal after the prototype: a node with an adjustable scale/denoise/
      anchor curve and a schedule preview.
