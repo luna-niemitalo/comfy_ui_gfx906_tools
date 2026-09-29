@@ -99,9 +99,16 @@ Run Krea2 (and other DiT image models) fast on 2x Radeon VII (gfx906) via a nati
   (block = 128 q rows x 64 keys; oracle top-cdf / pooled-mean prediction / reuse +1, +2
   steps). 1024x576 block 18: oracle tau 0.99 skips 19-29% at 1.4-1.8% error; pooled
   prediction ~4x the error at equal sparsity. 2560x1440 captures (steps 0-5, blocks
-  0/9/18/27, 268 MB each) in `scratchpad/attn_capture_hr/`; study running on blocks 18, 27.
-- **Next step**: finish the sparsity study -> if worthwhile, block-sparse kernel (per
-  (head, q-block) tile list). Then prep kernel, then scale-math.
+  0/9/18/27, 268 MB each) in `scratchpad/attn_capture_hr/`. At 2560x1440, tau 0.995:
+  oracle skips 11-20% (block 18), 13-15% (9), 26-32% (27), 31-46% (0) at <=0.7% error.
+  Pooled prediction: fine on 9/27 (~+2-4%), fails block 0 (42-53% error). Reusing the
+  previous step's oracle map: ~oracle on 27, 2-3x oracle on 9/18, fails block 0 (19-25%).
+  Kernel keep-mask built (node repo b88c2f5): oracle masks give 1.31-1.59x on the kernel
+  (29-45% skipped), error unchanged at tau 0.995. Open: a cheap, safe mask predictor.
+  Testing the "max P / row max >= eps" rule (kernel could record it on dense steps),
+  plain and reused (`scratchpad/sparsity_maxrel.py`).
+- **Next step**: pick a predictor + policy (which layers/steps dense), wire into the
+  node, render check with Luna. Then prep kernel, then scale-math.
 - **Hazards**:
   - 2026-09-28 hard hang = kernel Oops in kswapd (`__pgalloc_tag_sub`, alloc profiling),
     not GPU. Keep host-RAM churn low: few process launches, whitelist custom nodes.
