@@ -1,15 +1,17 @@
-"""How far does resolution growth hold up? (Luna: consistent 720p -> 2160p; find where it
-falls apart, report between every step.) One growth run from the 1280x720 composition to
-TARGET with ~1.2x per step (the 4K run's stride), through the ResolutionGrowth node's own
-grow(). After every step: decode, save scale_<k>_<w>x<h>.png, print one JSON line:
+"""How far does resolution growth hold up, and how do growth schedules compare? (Luna:
+consistent 720p -> 2160p; find where it falls apart, report between every step.)
+Each run grows the same 1280x720 composition through the ResolutionGrowth node's own grow().
+After every step: decode, save <label>/step_<k>_<w>x<h>.png, print one JSON line:
   drift_db     PSNR of the step image shrunk to 1280x720 vs the composition (layout / colour hold)
   change_db    PSNR of the step image shrunk to the previous size vs the previous image
   noise        Immerkaer single-image noise sigma (8-bit units; also counts fine texture)
+  noise_720    the same on the image shrunk to 1280x720 (Luna's stop criterion, default < 1)
   detail       mean |Laplacian| per pixel (falls with resolution by itself)
   detail_720   the same on the image shrunk to 1280x720 (content structure at a fixed scale)
-Ends with scale_metrics.png (all against output megapixels).
+Ends with metrics_<labels>.png: every run's curves against output megapixels, overlaid.
 
-Usage: scale_test.py [target_w target_h steps]   (default 7680 4320 10)"""
+Usage: scale_test.py [mode:WxH:n ...]   mode geometric (n = steps) or linear (n = step px)
+       default: geometric:7680x4320:10 (the 8K study)"""
 import asyncio, json, math, os, sys, time
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -26,9 +28,18 @@ from PIL import Image  # noqa: E402
 import pipeline  # noqa: E402
 
 growth = sys.modules[next(name for name in sys.modules if name.endswith("ComfyUI-ResolutionGrowth.growth"))]
-TARGET_W, TARGET_H, STEPS = (int(a) for a in sys.argv[1:4]) if len(sys.argv) == 4 else (7680, 4320, 10)
 OUT = os.path.join(prog.OUT, "scale")
-os.makedirs(OUT, exist_ok=True)
+
+
+def parse_run(spec):
+    mode, size, n = spec.split(":")
+    if mode not in ("geometric", "linear"):
+        sys.exit(f"run spec {spec!r}: mode must be geometric|linear, got {mode!r}")
+    w, h = (int(v) for v in size.split("x"))
+    return {"label": spec.replace(":", "_"), "mode": mode, "target": (w, h), "n": int(n)}
+
+
+RUNS = [parse_run(s) for s in (sys.argv[1:] or ["geometric:7680x4320:10"])]
 
 
 def shrink(arr, size):
@@ -57,7 +68,6 @@ def decode(vae, samples):
 
 resolved = pipeline.resolve({"kind": "moodykrea_int4", "prompt": prog.PROMPT,
                              "latent": {"width": prog.NATIVE[0], "height": prog.NATIVE[1]}})
-rows = []
 with torch.inference_mode():
     base_model, clip, vae = pipeline.build_loaders(resolved)
     (model,) = pipeline.call_node("Gfx906FusedAttention", model=base_model, qk="int4", pv="u8", skip_below=1e-4,
@@ -71,47 +81,55 @@ with torch.inference_mode():
                                         positive=positive, negative=positive, latent_image=latent,
                                         start_at_step=0, end_at_step=8, return_with_leftover_noise="disable")
     comp = decode(vae, composition["samples"])
-    Image.fromarray(comp).save(os.path.join(OUT, "scale_0_1280x720.png"))
-    state = {"prev": comp, "t": time.perf_counter()}
 
-    def report(k, size, sigma, x0):
-        step_s = time.perf_counter() - state["t"]
-        img = decode(vae, x0)
-        Image.fromarray(img).save(os.path.join(OUT, f"scale_{k + 1}_{size[0]}x{size[1]}.png"))
-        prev = state["prev"]
-        row = {"step": k + 1, "size": f"{size[0]}x{size[1]}", "mp": round(size[0] * size[1] / 1e6, 2),
-               "sigma": round(sigma, 3), "step_s": round(step_s, 1),
-               "drift_db": round(psnr(shrink(img, prog.NATIVE), comp), 2),
-               "change_db": round(psnr(shrink(img, prev.shape[1::-1]), prev), 2),
-               "noise": round(noise_sigma(img), 2), "detail": round(prog.detail(img), 2),
-               "detail_720": round(prog.detail(shrink(img, prog.NATIVE)), 2)}
-        rows.append(row)
-        print(json.dumps(row), flush=True)
-        state["prev"] = img
-        state["t"] = time.perf_counter()
+    for run in RUNS:
+        run_dir = os.path.join(OUT, run["label"])
+        os.makedirs(run_dir, exist_ok=True)
+        run["rows"] = []
+        state = {"prev": comp, "t": time.perf_counter(), "total": 0.0}
 
-    growth.grow(model, detail_positive, positive, vae, composition["samples"], (TARGET_W, TARGET_H), STEPS,
-                sigma_start=0.5, size_shape=1.0, anchor=1.0, anchor_shape=2.0, cfg=1.0, seed=prog.SEED + 1,
-                tile_px=1024, overlap_px=256, tile_batch=4, upscale_method="lanczos", upscale_model=None,
-                on_step=report)
+        def report(k, size, sigma, x0, run=run, run_dir=run_dir, state=state):
+            step_s = time.perf_counter() - state["t"]
+            state["total"] += step_s
+            img = decode(vae, x0)
+            Image.fromarray(img).save(os.path.join(run_dir, f"step_{k + 1}_{size[0]}x{size[1]}.png"))
+            small = shrink(img, prog.NATIVE)
+            row = {"run": run["label"], "step": k + 1, "size": f"{size[0]}x{size[1]}",
+                   "mp": round(size[0] * size[1] / 1e6, 2), "sigma": round(sigma, 3), "step_s": round(step_s, 1),
+                   "total_s": round(state["total"], 1), "drift_db": round(psnr(small, comp), 2),
+                   "change_db": round(psnr(shrink(img, state["prev"].shape[1::-1]), state["prev"]), 2),
+                   "noise": round(noise_sigma(img), 2), "noise_720": round(noise_sigma(small), 2),
+                   "detail": round(prog.detail(img), 2), "detail_720": round(prog.detail(small), 2)}
+            run["rows"].append(row)
+            print(json.dumps(row), flush=True)
+            state["prev"] = img
+            state["t"] = time.perf_counter()
+
+        growth.grow(model, detail_positive, positive, vae, composition["samples"], run["target"], run["mode"],
+                    run["n"], run["n"], sigma_start=0.5, size_shape=1.0, anchor=1.0, anchor_shape=2.0, cfg=1.0,
+                    seed=prog.SEED + 1, tile_px=1024, overlap_px=256, tile_batch=4, upscale_method="lanczos",
+                    upscale_model=None, on_step=report)
 
 import matplotlib  # noqa: E402
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
-mp = [r["mp"] for r in rows]
-fig, axes = plt.subplots(2, 2, figsize=(12, 8))
-for ax, keys, title in ((axes[0, 0], ["drift_db"], "drift vs composition (PSNR at 1280x720, dB)"),
-                        (axes[0, 1], ["change_db"], "change per step (PSNR at previous size, dB)"),
-                        (axes[1, 0], ["noise"], "noise estimate (Immerkaer sigma, 8-bit)"),
-                        (axes[1, 1], ["detail", "detail_720"], "detail (mean |Laplacian|)")):
-    for key in keys:
-        ax.plot(mp, [r[key] for r in rows], marker="o", label=key)
+fig, axes = plt.subplots(2, 3, figsize=(16, 8))
+panels = (("drift_db", "drift vs composition (PSNR at 1280x720, dB)"),
+          ("change_db", "change per step (PSNR at previous size, dB)"),
+          ("total_s", "cumulative growth time (s)"),
+          ("noise", "noise, full res (Immerkaer sigma, 8-bit)"),
+          ("noise_720", "noise at 1280x720 (stop criterion)"),
+          ("detail_720", "detail at 1280x720 (mean |Laplacian|)"))
+for ax, (key, title) in zip(axes.flat, panels):
+    for run in RUNS:
+        ax.plot([r["mp"] for r in run["rows"]], [r[key] for r in run["rows"]], marker="o", label=run["label"])
     ax.set_title(title)
     ax.set_xlabel("output megapixels")
     ax.set_xscale("log")
     ax.grid(alpha=0.3)
-    ax.legend()
-fig.suptitle(f"Resolution growth 1280x720 -> {TARGET_W}x{TARGET_H}, {STEPS} steps (Krea2 int4, 2 GPUs)")
+    ax.legend(fontsize=8)
+fig.suptitle("Resolution growth from 1280x720 (Krea2 int4, 2 GPUs)")
 fig.tight_layout()
-fig.savefig(os.path.join(OUT, "scale_metrics.png"), dpi=110)
-print(json.dumps({"done": True, "plot": os.path.join(OUT, "scale_metrics.png")}), flush=True)
+plot = os.path.join(OUT, f"metrics_{'__'.join(r['label'] for r in RUNS)}.png")
+fig.savefig(plot, dpi=110)
+print(json.dumps({"done": True, "plot": plot}), flush=True)
