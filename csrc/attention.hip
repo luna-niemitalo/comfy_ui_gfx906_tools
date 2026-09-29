@@ -31,6 +31,9 @@
 #define KPT 4
 #define DPT 8
 #define NO_SCORE -1e30f
+// keep-mask tiles per workgroup (LDS bits): 65536 keys. Checked against n_tiles
+// in binding.cpp (attention()).
+#define ATT_MAX_TILES 1024
 
 enum { QK_F16 = 0, QK_I8 = 1, QK_I4 = 2 };
 // A per-tile 4-bit P.V tier (v_dot8_u32_u4) was built and measured slower:
@@ -108,11 +111,15 @@ __device__ __forceinline__ float wave_max_of_rows(float row_uniform) {
 // workgroup: wave-uniform branches cost nothing, each wave reads only its own
 // P rows, and dropping the workgroup barrier it needed made the kernel ~5%
 // faster at L=14664.
+// keep [B, H, ceil(Lq / BQ), n_tiles] (optional, block-sparse): a workgroup
+// visits only the key tiles its byte marks; skipped tiles drop out of the
+// softmax entirely. Each row must keep at least one tile (attention.py's
+// selection always does).
 template <int QK, int PV>
 __global__ void __launch_bounds__(QKRow<QK>::THREADS) attention_kernel(
     const uint8_t* __restrict__ Q, const float* __restrict__ q_scale,
     const uint8_t* __restrict__ K, const float* __restrict__ k_scale,
-    const uint8_t* __restrict__ Vt, const float* __restrict__ v_scale,
+    const uint8_t* __restrict__ Vt, const float* __restrict__ v_scale, const uint8_t* __restrict__ keep,
     _Float16* __restrict__ out, int H, int KVH, int Lq, int Lk, int n_tiles, float skip_below) {
     constexpr int NT = QKRow<QK>::THREADS;
     constexpr int TY = NT / 16;
@@ -130,6 +137,7 @@ __global__ void __launch_bounds__(QKRow<QK>::THREADS) attention_kernel(
     __shared__ __attribute__((aligned(16))) uint8_t Ps[BQ * PRS];
     __shared__ float Ks_scale[BKV];
     __shared__ float Vs_scale[ATT_D];
+    __shared__ uint8_t keep_s[ATT_MAX_TILES / 8];  // bits: int8-QK/fp16-PV has <1 KB LDS left
 
     const int b = blockIdx.z, h = blockIdx.y, q0 = blockIdx.x * BQ;
     const int kvh = h / (H / KVH);
@@ -146,6 +154,21 @@ __global__ void __launch_bounds__(QKRow<QK>::THREADS) attention_kernel(
         uint4 val = q0 + r < Lq ? ((const uint4*)(Qg + (size_t)(q0 + r) * RB))[c] : make_uint4(0, 0, 0, 0);
         *(uint4*)(Qs + r * RS + c * 16) = val;
     }
+    if (keep) {
+        const uint8_t* keep_g = keep + ((size_t)(b * H + h) * gridDim.x + blockIdx.x) * n_tiles;
+        for (int i = tid; i < (n_tiles + 7) / 8; i += NT) {
+            uint8_t bits = 0;
+            for (int j = 0; j < 8 && i * 8 + j < n_tiles; j++) bits |= (keep_g[i * 8 + j] != 0) << j;
+            keep_s[i] = bits;
+        }
+        __syncthreads();
+    }
+    // workgroup-uniform: every thread scans the same LDS bits
+    auto next_tile = [&](int t) {
+        t++;
+        while (keep && t < n_tiles && !((keep_s[t >> 3] >> (t & 7)) & 1)) t++;
+        return t;
+    };
     float qs[RPT];
 #pragma unroll
     for (int i = 0; i < RPT; i++) {
@@ -210,14 +233,16 @@ __global__ void __launch_bounds__(QKRow<QK>::THREADS) attention_kernel(
         if (QK != QK_F16 && tid < BKV) Ks_scale[tid] = ks_pre;
         if (P_U8 && tid < ATT_D) Vs_scale[tid] = vs_pre;
     };
-    load_k(0);
-    load_v(0);
+    int t = next_tile(-1);
+    load_k(t);
+    load_v(t);
     store_kv();
 
-    for (int t = 0; t < n_tiles; t++) {
+    while (t < n_tiles) {
         const int k0 = t * BKV;
-        const bool has_next = t + 1 < n_tiles;
-        __syncthreads();  // this tile's K/V (and Q on t = 0) are in LDS
+        const int t_next = next_tile(t);
+        const bool has_next = t_next < n_tiles;
+        __syncthreads();  // this tile's K/V (and Q on the first tile) are in LDS
 
         float facc[RPT][KPT];
         int iacc[RPT][KPT];
@@ -292,8 +317,8 @@ __global__ void __launch_bounds__(QKRow<QK>::THREADS) attention_kernel(
             }
             pq_sum[i] = P_U8 && !skip ? row_sum16(qsum) : 0.0f;
         }
-        if (has_next) load_k(t + 1);
-        if (has_next) load_v(t + 1);
+        if (has_next) load_k(t_next);
+        if (has_next) load_v(t_next);
         // P rows are written and read only by their own wave: no workgroup
         // barrier, but keep the compiler from moving the reads above the writes.
         __builtin_amdgcn_fence(__ATOMIC_RELEASE, "wavefront");
@@ -352,6 +377,7 @@ __global__ void __launch_bounds__(QKRow<QK>::THREADS) attention_kernel(
             __syncthreads();  // every wave is done reading this tile's Ks/Vs/Ps
             store_kv();
         }
+        t = t_next;
     }
 
 #pragma unroll
@@ -365,23 +391,26 @@ __global__ void __launch_bounds__(QKRow<QK>::THREADS) attention_kernel(
     }
 }
 
+int attention_block_rows(int qk_mode) { return RPT * (qk_mode == QK_F16 ? QKRow<QK_F16>::THREADS : QKRow<QK_I8>::THREADS) / 16; }
+int attention_max_tiles() { return ATT_MAX_TILES; }
+
 template <int QK, int PV>
 static void attention_launch(const uint8_t* Q, const float* qs, const uint8_t* K, const float* ks, const uint8_t* Vt,
-                             const float* vs, void* out, int B, int H, int KVH, int Lq, int Lk, float skip_below,
-                             hipStream_t stream) {
+                             const float* vs, const uint8_t* keep, void* out, int B, int H, int KVH, int Lq, int Lk,
+                             float skip_below, hipStream_t stream) {
     constexpr int NT = QKRow<QK>::THREADS;
-    constexpr int BQ = RPT * NT / 16;
     const int n_tiles = (Lk + BKV - 1) / BKV;
-    dim3 grid((Lq + BQ - 1) / BQ, H, B);
-    attention_kernel<QK, PV><<<grid, NT, 0, stream>>>(Q, qs, K, ks, Vt, vs, (_Float16*)out, H, KVH, Lq, Lk, n_tiles,
-                                                      skip_below);
+    dim3 grid((Lq + attention_block_rows(QK) - 1) / attention_block_rows(QK), H, B);
+    attention_kernel<QK, PV><<<grid, NT, 0, stream>>>(Q, qs, K, ks, Vt, vs, keep, (_Float16*)out, H, KVH, Lq, Lk,
+                                                      n_tiles, skip_below);
 }
 
+
 void attention_dispatch(int qk_mode, int pv_mode, const uint8_t* Q, const float* qs, const uint8_t* K, const float* ks,
-                        const uint8_t* Vt, const float* vs, void* out, int B, int H, int KVH, int Lq, int Lk,
-                        float skip_below, hipStream_t stream) {
+                        const uint8_t* Vt, const float* vs, const uint8_t* keep, void* out, int B, int H, int KVH,
+                        int Lq, int Lk, float skip_below, hipStream_t stream) {
 #define ATT_CASE(QKM, PVM) \
-    if (qk_mode == QKM && pv_mode == PVM) return attention_launch<QKM, PVM>(Q, qs, K, ks, Vt, vs, out, B, H, KVH, Lq, Lk, skip_below, stream);
+    if (qk_mode == QKM && pv_mode == PVM) return attention_launch<QKM, PVM>(Q, qs, K, ks, Vt, vs, keep, out, B, H, KVH, Lq, Lk, skip_below, stream);
     ATT_CASE(QK_F16, PV_F16) ATT_CASE(QK_F16, PV_U8)
     ATT_CASE(QK_I8, PV_F16) ATT_CASE(QK_I8, PV_U8)
     ATT_CASE(QK_I4, PV_F16) ATT_CASE(QK_I4, PV_U8)

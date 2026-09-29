@@ -70,16 +70,22 @@ def _prepare_v(v, mode):
     return vq.to(torch.uint8).contiguous(), scale.contiguous()
 
 
-def fused_attention(q, k, v, qk="int8", pv="u8", skip_below=0.0):
+def fused_attention(q, k, v, qk="int8", pv="u8", skip_below=0.0, keep=None):
     """q [B, H, Lq, 128] post-RoPE, k/v [B, KVH, Lk, 128] (not GQA-expanded;
-    Lq != Lk for the two-GPU row split). Returns [B, Lq, H * 128] fp16."""
+    Lq != Lk for the two-GPU row split). keep: optional block-sparse mask,
+    uint8 [B, H, ceil(Lq / block_rows(qk)), ceil(Lk / 64)]. Returns [B, Lq, H * 128] fp16."""
     if q.shape[-1] != HEAD_DIM:
         raise ValueError(f"head dim must be {HEAD_DIM}, got {q.shape[-1]}")
     if qk not in QK_MODES or pv not in PV_MODES:
         raise ValueError(f"qk in {list(QK_MODES)}, pv in {list(PV_MODES)}; got qk={qk!r} pv={pv!r}")
     qb, qs, kb, ks = _prepare_qk(q, k, qk)
     vt, vs = _prepare_v(v, pv)
-    return ops._get_ext().attention(qb, qs, kb, ks, vt, vs, QK_MODES[qk], PV_MODES[pv], float(skip_below))
+    return ops._get_ext().attention(qb, qs, kb, ks, vt, vs, QK_MODES[qk], PV_MODES[pv], float(skip_below), keep)
+
+
+def block_rows(qk):
+    """Query rows per kernel workgroup = rows per keep-mask block."""
+    return ops._get_ext().attention_block_rows(QK_MODES[qk])
 
 
 def _gqa_repeat(diffusion_model):

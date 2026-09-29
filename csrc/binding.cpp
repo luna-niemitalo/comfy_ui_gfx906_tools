@@ -9,8 +9,10 @@ void gemm_dispatch(int dtype, const void* A, const float* As, const void* B, con
 int gemm_tiles(int M, int N);
 int gemm_k_tiles(int n_blocks);
 void attention_dispatch(int qk_mode, int pv_mode, const uint8_t* Q, const float* qs, const uint8_t* K, const float* ks,
-                        const uint8_t* Vt, const float* vs, void* out, int B, int H, int KVH, int Lq, int Lk,
-                        float skip_below, hipStream_t stream);
+                        const uint8_t* Vt, const float* vs, const uint8_t* keep, void* out, int B, int H, int KVH,
+                        int Lq, int Lk, float skip_below, hipStream_t stream);
+int attention_block_rows(int qk_mode);
+int attention_max_tiles();
 
 // Workgroups resident at once per CU: __launch_bounds__(256) with
 // amdgpu_waves_per_eu(2) -> 2 waves/SIMD x 4 SIMDs / 4 waves per WG.
@@ -99,9 +101,12 @@ torch::Tensor gemm_int4(torch::Tensor A_packed, torch::Tensor A_scale, torch::Te
 // Q [B, H, Lq, qrow] uint8, K [B, KVH, Lk, qrow] uint8 (qrow = 256 fp16 / 128 int8 /
 // 64 int4), q_scale [B, H, Lq] / k_scale [B, KVH, Lk] fp32 (int modes, else empty),
 // Vt [B, KVH, ceil(Lk / 64), 128, 64 * vbytes] uint8, v_scale [B, KVH, ceil(Lk / 64),
-// 128] fp32 (u8 mode, else empty). Returns [B, Lq, H * 128] fp16.
+// 128] fp32 (u8 mode, else empty). keep (optional) uint8 [B, H, ceil(Lq / block_rows),
+// ceil(Lk / 64)], block_rows = attention_block_rows(qk_mode): nonzero = visit that key
+// tile; every query block must keep at least one. Returns [B, Lq, H * 128] fp16.
 torch::Tensor attention(torch::Tensor Q, torch::Tensor q_scale, torch::Tensor K, torch::Tensor k_scale,
-                        torch::Tensor Vt, torch::Tensor v_scale, int64_t qk_mode, int64_t pv_mode, double skip_below) {
+                        torch::Tensor Vt, torch::Tensor v_scale, int64_t qk_mode, int64_t pv_mode, double skip_below,
+                        c10::optional<torch::Tensor> keep) {
     TORCH_CHECK(qk_mode >= 0 && qk_mode <= 2, "qk_mode must be 0 fp16 / 1 int8 / 2 int4, got ", qk_mode);
     TORCH_CHECK(pv_mode >= 0 && pv_mode <= 1, "pv_mode must be 0 fp16 / 1 u8, got ", pv_mode);
     const int64_t qrow = qk_mode == 0 ? 256 : qk_mode == 1 ? 128 : 64;
@@ -127,6 +132,17 @@ torch::Tensor attention(torch::Tensor Q, torch::Tensor q_scale, torch::Tensor K,
         TORCH_CHECK(v_scale.numel() == B * KVH * n_tiles * 128, "v_scale must have ", B * KVH * n_tiles * 128,
                     " elements, got ", v_scale.numel());
     }
+    torch::Tensor keep_c;
+    if (keep.has_value()) {
+        const int64_t rows = attention_block_rows((int)qk_mode), n_qb = (Lq + rows - 1) / rows;
+        TORCH_CHECK(keep->scalar_type() == torch::kUInt8 && keep->dim() == 4 && keep->size(0) == B &&
+                        keep->size(1) == H && keep->size(2) == n_qb && keep->size(3) == n_tiles,
+                    "keep must be uint8 [", B, ", ", H, ", ", n_qb, ", ", n_tiles, "], got ", keep->scalar_type(), " ",
+                    keep->sizes());
+        TORCH_CHECK(n_tiles <= attention_max_tiles(), "keep supports at most ", attention_max_tiles(),
+                    " key tiles, got ", n_tiles);
+        keep_c = keep->contiguous();
+    }
     const c10::cuda::CUDAGuard device_guard(Q.device());
     auto Qc = Q.contiguous(), Kc = K.contiguous(), Vc = Vt.contiguous();
     auto qs = q_scale.to(torch::kFloat32).contiguous(), ks = k_scale.to(torch::kFloat32).contiguous();
@@ -134,8 +150,9 @@ torch::Tensor attention(torch::Tensor Q, torch::Tensor q_scale, torch::Tensor K,
     auto out = torch::empty({B, Lq, H * 128}, Q.options().dtype(torch::kFloat16));
     attention_dispatch((int)qk_mode, (int)pv_mode, Qc.data_ptr<uint8_t>(), qs.numel() ? qs.data_ptr<float>() : nullptr,
                        Kc.data_ptr<uint8_t>(), ks.numel() ? ks.data_ptr<float>() : nullptr, Vc.data_ptr<uint8_t>(),
-                       vs.numel() ? vs.data_ptr<float>() : nullptr, out.data_ptr(), (int)B, (int)H, (int)KVH, (int)Lq,
-                       (int)Lk, (float)skip_below, at::cuda::getCurrentCUDAStream().stream());
+                       vs.numel() ? vs.data_ptr<float>() : nullptr,
+                       keep_c.defined() ? keep_c.data_ptr<uint8_t>() : nullptr, out.data_ptr(), (int)B, (int)H,
+                       (int)KVH, (int)Lq, (int)Lk, (float)skip_below, at::cuda::getCurrentCUDAStream().stream());
     return out;
 }
 
@@ -149,5 +166,8 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     m.def("gemm_int4", &gemm_int4, "gfx906 block-scaled int4 GEMM", py::arg("A_packed"), py::arg("A_scale"),
           py::arg("B_packed"), py::arg("B_scale"), py::arg("bias"), py::arg("out_dtype"), py::arg("splits") = 0);
     m.def("gemm_int4_auto_splits", &gemm_int4_auto_splits, "split-K count gemm_int4 picks for [M,K] x [N,K]^T");
-    m.def("attention", &attention, "gfx906 fused attention, head dim 128 (inputs from attention.py)");
+    m.def("attention", &attention, "gfx906 fused attention, head dim 128 (inputs from attention.py)", py::arg("Q"),
+          py::arg("q_scale"), py::arg("K"), py::arg("k_scale"), py::arg("Vt"), py::arg("v_scale"), py::arg("qk_mode"),
+          py::arg("pv_mode"), py::arg("skip_below"), py::arg("keep") = py::none());
+    m.def("attention_block_rows", &attention_block_rows, "query rows per attention workgroup (= keep-mask block)");
 }
