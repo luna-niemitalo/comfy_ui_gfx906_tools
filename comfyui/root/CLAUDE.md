@@ -29,8 +29,14 @@ Run Krea2 (and other DiT image models) fast on 2x Radeon VII (gfx906) via a nati
     projections at M<=192, but a 128² step only 165.5 -> 164 ms.
   - At 128², the prompt dominates: 128 text tokens 165 ms/step, 600 tokens 541 ms
     (int4 linears ~80% of either). 512²: 923 / 1387 ms.
-- **Target**: faster attention on gfx906 (int8 QK^T on v_dot4, Sage-style) — not started.
-  Higher int4 GEMM core rate (~40 of ~110 TOPS peak) — the lever for small sizes; not started.
+  - int4 GEMM ceiling study (2026-09-29, scratch variants, all bit-exact):
+    sustained dot8 peak ~94 TOPS (`develop/harness/peak_dot8.py`); production 40;
+    without scale math 55; int-only from registers 61. Production (81 VGPR, 3 waves/SIMD)
+    is a local optimum: flat->global loads, LDS double-buffer, 8-block stages, c-unroll,
+    forced 4 waves (spills) all lost 1-46%. Don't retry those.
+- **Target**: faster attention on gfx906 (int8/int4 QK^T, Sage-style) — exploring.
+  Scale-math reduction (64-value blocks / cheaper scale ops; ceiling 55 TOPS) — after
+  Luna's review of the attention exploration.
 - Anything not listed under Current does not exist yet. Do not describe it as working.
 
 ## Boundaries
