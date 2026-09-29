@@ -137,8 +137,8 @@ Run Krea2 (and other DiT image models) fast on 2x Radeon VII (gfx906) via a nati
         => persistent worst-seen cache is SAFER than the current per-run calibration.
         Proposed: learn over the first 3 runs per key (measure all layers every step,
         ~2.2 s/step at 2560x1440, output unchanged), then sparse with no calibration;
-        ~1 s/step gain (~5%) at 2560x1440, break-even ~7 runs. Waiting on Luna: build
-        now or after VAE/preview work.
+        ~1 s/step gain (~5%) at 2560x1440, break-even ~7 runs. Luna: build it AFTER the
+        VAE/preview work. Priority (Luna, corrected): progressive upscale > VAE > cache.
      b. If verdicts transfer: persistent cache. Design agreed in chat: JSON in ComfyUI's
         user dir (`folder_paths.get_user_directory()/gfx906_int4/attention_calibration.json`,
         survives restarts, comfy cache wipes, browser); key = model fingerprint (hash of
@@ -171,10 +171,15 @@ Run Krea2 (and other DiT image models) fast on 2x Radeon VII (gfx906) via a nati
        scratchpad (45,274,004 B, sha256 8666e769...1a19) -- Luna moves it to
        /media/luna/models/VAE-approx/ herself (outside write scope). Without it,
        latent2rgb fallback.
-     - VAE decode (tiled 512/64, fp32, conv3d as is) at 1024x576: 5.51 s = ~2 sampling
-       steps there. `vae_bench.py` (fp32/fp16 x conv3d/conv2d x 1024x576/2560x1440/4K)
-       fixed (compare on CPU), to rerun. CausalConv3d already slices the kernel for T=1
-       (`autopad="causal_zero"`) but MIOpen still runs it as 3-D.
+     - VAE decode, tiled 512/64, steady state best of 3 (`vae_bench.py`, `vae_bench2.log`):
+       fp32 conv3d / **fp32 conv2d** / fp16 conv3d / fp16 conv2d:
+       1024x576 0.61 / **0.25** / 0.56 / 0.39 s; 2560x1440 3.93 / **1.65** / 3.49 / 2.47 s;
+       3840x2160 9.24 / **4.04** / 7.87 / 5.64 s. conv2d = run T=1 3-D convs as 2-D
+       (CausalConv3d already slices the kernel for T=1 via `autopad="causal_zero"`, but
+       MIOpen still runs 3-D): BIT-EXACT vs fp32 conv3d. fp16 slower on gfx906 and max diff
+       0.0035-0.0087, once 0.52 (not reproducible -- nondeterministic MIOpen fp16 pick).
+       => ship fp32 + conv2d; no auto fp16 (item 2 dropped). First decode at a new size
+       adds MIOpen tuning (5.51 s vs 0.61 s at 1024x576 the very first time).
      - PiD: NVIDIA PixelDiT pixel-space decoder/upscaler, native in comfy
        (`comfy/ldm/pixeldit`); `qwenimage` backbone (16 ch / 8x = Krea2's latent space)
        `2kto4k`: 1024-class latent -> 4x pixels (1024x576 -> 4096x2304) in ~4 steps.
