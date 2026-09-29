@@ -21,6 +21,11 @@ import torch
 from . import ops
 
 BLOCK = 32
+# ComfyUI frees room for vae.memory_used_* before each call. Measured int8 / fp16 working memory
+# (peak allocated above the loaded weights, Qwen-Image VAE, 2560x1440, vae_mem_bench.py):
+# tiled decode 0.54, plain decode 0.51, tiled encode 0.39, plain encode 0.81. Rounded up.
+DECODE_MEMORY_RATIO = 0.6
+ENCODE_MEMORY_RATIO = 0.85
 # 128x64 tiles, 8x4 per thread: best of the four configs at every VAE conv shape
 # (develop/harness/bench_int8.py, 2026-09-29).
 GEMM_CONFIG = 1
@@ -83,6 +88,8 @@ def patch_vae(vae):
     input VAE is untouched). Returns (vae, number of convs patched)."""
     patched = copy.copy(vae)
     patched.patcher = vae.patcher.clone()
+    patched.memory_used_decode = lambda shape, dtype: vae.memory_used_decode(shape, dtype) * DECODE_MEMORY_RATIO
+    patched.memory_used_encode = lambda shape, dtype: vae.memory_used_encode(shape, dtype) * ENCODE_MEMORY_RATIO
     count = 0
     for name, m in vae.first_stage_model.named_modules():
         if not isinstance(m, (torch.nn.Conv2d, torch.nn.Conv3d)) or not eligible(m.weight, m.groups):
@@ -95,8 +102,10 @@ def patch_vae(vae):
 
 
 class Gfx906Int8VAE:
-    """VAE -> VAE with int8 convolutions (W8A8, 32-channel block scales) on gfx906.
-    Measured on the Qwen-Image VAE (Krea2): CLAUDE.md "VAE int8"."""
+    """VAE -> VAE with int8 convolutions (W8A8, 32-channel block scales) on gfx906: a VRAM
+    option. Qwen-Image VAE (Krea2) on fp16, 2560x1440 tiled 512: reserved 1.19 vs 1.82 GB
+    decode, 0.71 vs 0.92 GB encode; ~same speed as fp16 (2.47 vs 2.29 s decode); 58 dB vs
+    fp32 (fp16 alone: 66 dB). CLAUDE.md "VAE int path"."""
 
     @classmethod
     def INPUT_TYPES(s):
