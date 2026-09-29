@@ -35,6 +35,8 @@ parser.add_argument("--check", action="store_true", help="max relative error of 
 parser.add_argument("--ballast-gb", type=float, default=0.0, help="hold this much VRAM on --split-device (stands in for a text encoder + VAE parked there)")
 parser.add_argument("--fused-attention", default=None, metavar="QK/PV", help="apply Gfx906FusedAttention, e.g. int4/u8 (qk: fp16|int8|int4, pv: fp16|u8)")
 parser.add_argument("--skip-below", type=float, default=1e-4, help="Gfx906FusedAttention tile skip threshold")
+parser.add_argument("--sparse-tau", type=float, default=0.0, help="Gfx906FusedAttention block sparsity (0 = off); calibrates on the warmup forward")
+parser.add_argument("--max-missed", type=float, default=0.02, help="Gfx906FusedAttention block-sparse calibration bound")
 cli = parser.parse_args()
 
 import comfy.cli_args  # noqa: E402  (must precede bootstrap: attention is picked at comfy import)
@@ -150,7 +152,8 @@ def main():
         # patch- and wrapper-based nodes take effect.
         if cli.fused_attention:
             qk, pv = cli.fused_attention.split("/")
-            (model,) = pipeline.call_node("Gfx906FusedAttention", model=model, qk=qk, pv=pv, skip_below=cli.skip_below)
+            (model,) = pipeline.call_node("Gfx906FusedAttention", model=model, qk=qk, pv=pv, skip_below=cli.skip_below,
+                                          sparse_tau=cli.sparse_tau, max_missed=cli.max_missed)
         if cli.split_device:
             (model,) = pipeline.call_node("Gfx906RowSplitKrea2", model=model, device=cli.split_device, min_image_tokens=0)
             other_gpu = f"cuda:{1 - device.index}" if cli.split_device == "auto" else cli.split_device
