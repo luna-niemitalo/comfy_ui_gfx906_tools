@@ -370,6 +370,13 @@ Run Krea2 (and other DiT image models) fast on 2x Radeon VII (gfx906) via a nati
        slower -- that's why fp32 was picked). fp16 checked finite on 4 renders + 2 stress
        images, 65-82 dB (vae_fp16_check.py). run.nu now `--fp16-vae` (1e8fd548); needs
        `--disable-miopen` to stay.
+       **Luna: the int VAE was also for VRAM** -> int8 restored as a VRAM option (node repo
+       f30179e, "Gfx906 Int8 VAE", memory_used_* scaled 0.6 / 0.85 to measured use).
+       vae_mem_bench.py, 2560x1440, reserved GB (tiled 512 = growth path): decode fp32 3.55 /
+       fp16 1.82 / int8 1.19; encode 1.75 / 0.92 / 0.71; plain VAEDecode fp16 15.3, int8 12.8.
+       The real VRAM hog was ComfyUI's tiled-ENCODE estimate: whole image, 10.3 GB fp16 /
+       20.6 fp32 freed before every growth step's encode vs < 1 GB used. Fixed in comfy/sd.py
+       (per tile like decode_tiled, a78eae83): 0.73 GB.
      - **Calibration cache built** (node repo b70a9f6, `calibration` input, default persistent;
        sparse_tau still defaults to 0 = off). calib_cache_bench.py, 2560x1440 8 steps, alternating:
        dense 160.8 / 161.8 / 162.3 s, cached 156.0 / 156.8 / 157.0 s (-3.4%, ~5.3 s/run), per_run
