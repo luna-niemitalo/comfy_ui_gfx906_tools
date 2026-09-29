@@ -166,8 +166,8 @@ __global__ void __launch_bounds__(THREADS) __attribute__((amdgpu_waves_per_eu(2)
                     acc[i][j] = fmaf((float)ip, bsc[j], acc[i][j]);
 #elif SCALE_MODE == 3
                     // sub-scales stand in as the scales' low bits (the kernel would store int8 sub-scales)
-                    int sub = __builtin_amdgcn_mul_i24(__float_as_int(asc) & 0xF, __float_as_int(bsc[j]) & 0xF);
-                    iacc[i][j] = __builtin_amdgcn_mad_i24(ip, sub, iacc[i][j]);
+                    int sub = __mul24(__float_as_int(asc) & 0xF, __float_as_int(bsc[j]) & 0xF);
+                    iacc[i][j] = __mul24(ip, sub) + iacc[i][j];  // -> v_mad_i32_i24
 #else
                     iacc[i][j] += ip;
 #endif
