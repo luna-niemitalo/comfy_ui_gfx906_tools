@@ -12,9 +12,6 @@ void attention_dispatch(int qk_mode, int pv_mode, const uint8_t* Q, const float*
                         const uint8_t* Vt, const float* vs, const uint8_t* keep, void* out, int B, int H, int KVH,
                         int Lq, int Lk, float skip_below, hipStream_t stream);
 int attention_block_rows(int qk_mode);
-void quantize_int8_dispatch(int dtype, const void* x, void* q, float* scale, long total_blocks, hipStream_t stream);
-void gemm_int8_dispatch(int dtype, int config, const void* A, const float* As, const void* B, const float* Bs,
-                        const void* bias, void* C, int M, int N, int n_blocks, const int* geom, hipStream_t stream);
 int attention_max_tiles();
 
 // Workgroups resident at once per CU: __launch_bounds__(256) with
@@ -159,90 +156,6 @@ torch::Tensor attention(torch::Tensor Q, torch::Tensor q_scale, torch::Tensor K,
     return out;
 }
 
-// x: [M, K] float32/16/bf16 -> (int8 [M, K], scale float32 [M, K/32]); scale = block amax / 127
-std::vector<torch::Tensor> quantize_int8(torch::Tensor x) {
-    TORCH_CHECK(x.is_cuda(), "x must be on device");
-    TORCH_CHECK(x.dim() == 2 && x.size(1) % 32 == 0, "x must be [M, K] with K % 32 == 0, got ", x.sizes());
-    const c10::cuda::CUDAGuard device_guard(x.device());
-    auto xc = x.contiguous();
-    int64_t M = xc.size(0), K = xc.size(1);
-    auto q = torch::empty({M, K}, xc.options().dtype(torch::kInt8));
-    auto scale = torch::empty({M, K / 32}, xc.options().dtype(torch::kFloat32));
-    if (M == 0) return {q, scale};
-    quantize_int8_dispatch(dtype_code(xc.scalar_type()), xc.data_ptr(), q.data_ptr(), scale.data_ptr<float>(),
-                           M * (K / 32), at::cuda::getCurrentCUDAStream().stream());
-    return {q, scale};
-}
-
-// A/A_scale: from quantize_int8, [M, K] / [M, K/32]. B [N, K], B_scale [N, K/32].
-// Returns [M, N] in out_dtype; bias (optional, out_dtype) is fused into the store.
-torch::Tensor gemm_int8(torch::Tensor A, torch::Tensor A_scale, torch::Tensor B, torch::Tensor B_scale,
-                        c10::optional<torch::Tensor> bias, torch::ScalarType out_dtype, int64_t config) {
-    TORCH_CHECK(A.is_cuda() && B.is_cuda(), "inputs must be on device");
-    TORCH_CHECK(config >= 0 && config <= 3, "config must be in [0, 3], got ", config);
-    TORCH_CHECK(A.device() == B.device(), "A and B must be on the same device");
-    TORCH_CHECK(A.dtype() == torch::kInt8 && B.dtype() == torch::kInt8, "A and B must be int8");
-    TORCH_CHECK(A.dim() == 2 && B.dim() == 2 && A.size(1) == B.size(1) && A.size(1) % 32 == 0,
-                "expected A [M, K], B [N, K], K % 32 == 0; got A ", A.sizes(), " B ", B.sizes());
-    const int64_t M = A.size(0), N = B.size(0), n_blocks = A.size(1) / 32;
-    TORCH_CHECK(A_scale.dtype() == torch::kFloat32 && B_scale.dtype() == torch::kFloat32, "scales must be float32");
-    TORCH_CHECK(A_scale.numel() == M * n_blocks && B_scale.numel() == N * n_blocks, "scales must be [M, K/32] / [N, K/32], got ",
-                A_scale.sizes(), " / ", B_scale.sizes());
-    const c10::cuda::CUDAGuard device_guard(A.device());
-    auto Ac = A.contiguous(), Bc = B.contiguous(), As = A_scale.contiguous(), Bs = B_scale.contiguous();
-    auto C = torch::empty({M, N}, Ac.options().dtype(out_dtype));
-    if (M == 0) return C;
-    const void* bias_ptr = nullptr;
-    torch::Tensor bias_c;
-    if (bias.has_value()) {
-        TORCH_CHECK(bias->scalar_type() == out_dtype && bias->numel() == N, "bias must be ", out_dtype, " [", N, "], got ",
-                    bias->scalar_type(), " ", bias->sizes());
-        bias_c = bias->contiguous();
-        bias_ptr = bias_c.data_ptr();
-    }
-    gemm_int8_dispatch(dtype_code(out_dtype), (int)config, Ac.data_ptr(), As.data_ptr<float>(), Bc.data_ptr(), Bs.data_ptr<float>(),
-                       bias_ptr, C.data_ptr(), (int)M, (int)N, (int)n_blocks, nullptr, at::cuda::getCurrentCUDAStream().stream());
-    return C;
-}
-
-// Implicit-GEMM int8 conv. x/x_scale: quantize_int8 of the channels-last input, [B*H*W, C] /
-// [B*H*W, C/32]. W/W_scale: quantize_int8 of the weight as [Cout, kh*kw*C] (tap-major).
-// Returns [B*Ho*Wo, Cout] (channels-last output) in out_dtype.
-torch::Tensor conv_int8(torch::Tensor x, torch::Tensor x_scale, torch::Tensor W, torch::Tensor W_scale,
-                        c10::optional<torch::Tensor> bias, torch::ScalarType out_dtype, int64_t B, int64_t H, int64_t Wd,
-                        int64_t kh, int64_t kw, int64_t sh, int64_t sw, int64_t ph, int64_t pw, int64_t config) {
-    TORCH_CHECK(x.is_cuda() && W.is_cuda() && x.device() == W.device(), "x and W must be on the same device");
-    TORCH_CHECK(x.dtype() == torch::kInt8 && W.dtype() == torch::kInt8, "x and W must be int8");
-    TORCH_CHECK(config >= 0 && config <= 3, "config must be in [0, 3], got ", config);
-    const int64_t C = x.size(1), N = W.size(0);
-    TORCH_CHECK(x.dim() == 2 && x.size(0) == B * H * Wd && C % 32 == 0, "x must be [", B * H * Wd, ", C % 32 == 0], got ",
-                x.sizes());
-    TORCH_CHECK(W.dim() == 2 && W.size(1) == kh * kw * C, "W must be [Cout, ", kh * kw * C, "], got ", W.sizes());
-    TORCH_CHECK(x_scale.dtype() == torch::kFloat32 && W_scale.dtype() == torch::kFloat32, "scales must be float32");
-    TORCH_CHECK(x_scale.numel() == x.size(0) * (C / 32) && W_scale.numel() == N * kh * kw * (C / 32),
-                "scale sizes: expected ", x.size(0) * (C / 32), " / ", N * kh * kw * (C / 32), ", got ", x_scale.numel(), " / ",
-                W_scale.numel());
-    const int64_t Ho = (H + 2 * ph - kh) / sh + 1, Wo = (Wd + 2 * pw - kw) / sw + 1;
-    TORCH_CHECK(Ho > 0 && Wo > 0, "empty output: ", H, "x", Wd, " kernel ", kh, "x", kw);
-    const c10::cuda::CUDAGuard device_guard(x.device());
-    auto xc = x.contiguous(), Wc = W.contiguous(), xs = x_scale.contiguous(), Ws = W_scale.contiguous();
-    const int64_t M = B * Ho * Wo;
-    auto out = torch::empty({M, N}, xc.options().dtype(out_dtype));
-    const void* bias_ptr = nullptr;
-    torch::Tensor bias_c;
-    if (bias.has_value()) {
-        TORCH_CHECK(bias->scalar_type() == out_dtype && bias->numel() == N, "bias must be ", out_dtype, " [", N, "], got ",
-                    bias->scalar_type(), " ", bias->sizes());
-        bias_c = bias->contiguous();
-        bias_ptr = bias_c.data_ptr();
-    }
-    const int geom[10] = {(int)H, (int)Wd, (int)(C / 32), (int)Ho, (int)Wo, (int)kw, (int)sh, (int)sw, (int)ph, (int)pw};
-    gemm_int8_dispatch(dtype_code(out_dtype), (int)config, xc.data_ptr(), xs.data_ptr<float>(), Wc.data_ptr(),
-                       Ws.data_ptr<float>(), bias_ptr, out.data_ptr(), (int)M, (int)N, (int)(kh * kw * C / 32), geom,
-                       at::cuda::getCurrentCUDAStream().stream());
-    return out;
-}
-
 int64_t gemm_int4_auto_splits(int64_t M, int64_t N, int64_t K) {
     int cus = at::cuda::getCurrentDeviceProperties()->multiProcessorCount;
     return auto_splits((int)M, (int)N, (int)(K / 32), cus);
@@ -253,13 +166,6 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     m.def("gemm_int4", &gemm_int4, "gfx906 block-scaled int4 GEMM", py::arg("A_packed"), py::arg("A_scale"),
           py::arg("B_packed"), py::arg("B_scale"), py::arg("bias"), py::arg("out_dtype"), py::arg("splits") = 0);
     m.def("gemm_int4_auto_splits", &gemm_int4_auto_splits, "split-K count gemm_int4 picks for [M,K] x [N,K]^T");
-    m.def("quantize_int8", &quantize_int8, "block-32 int8 quantize (weights and activations)");
-    m.def("gemm_int8", &gemm_int8, "gfx906 block-scaled int8 GEMM", py::arg("A"), py::arg("A_scale"), py::arg("B"),
-          py::arg("B_scale"), py::arg("bias"), py::arg("out_dtype"), py::arg("config") = 0);
-    m.def("conv_int8", &conv_int8, "gfx906 implicit-GEMM int8 conv, channels-last", py::arg("x"), py::arg("x_scale"),
-          py::arg("W"), py::arg("W_scale"), py::arg("bias"), py::arg("out_dtype"), py::arg("B"), py::arg("H"),
-          py::arg("W_in"), py::arg("kh"), py::arg("kw"), py::arg("sh"), py::arg("sw"), py::arg("ph"), py::arg("pw"),
-          py::arg("config") = 1);
     m.def("attention", &attention, "gfx906 fused attention, head dim 128 (inputs from attention.py)", py::arg("Q"),
           py::arg("q_scale"), py::arg("K"), py::arg("k_scale"), py::arg("Vt"), py::arg("v_scale"), py::arg("qk_mode"),
           py::arg("pv_mode"), py::arg("skip_below"), py::arg("keep") = py::none());
