@@ -52,6 +52,7 @@ def main():
     parser.add_argument("--device", default="cuda:0")
     parser.add_argument("--m", default="64,2304,14400", help="comma-separated token counts")
     parser.add_argument("--iters", type=int, default=5)
+    parser.add_argument("--splits", default="0", help="comma-separated split-K counts to time (0 = the kernel's auto pick)")
     args = parser.parse_args()
 
     ops = load_ops()
@@ -67,14 +68,18 @@ def main():
             a_packed, a_scale = ext.quantize_int4(x)
 
             quant_ms = time_ms(lambda: ext.quantize_int4(x), args.iters)
-            gemm_ms = time_ms(lambda: ext.gemm_int4(a_packed, a_scale, w_packed, w_scale, None, x.dtype), args.iters)
             fp16_ms = time_ms(lambda: x @ w.t(), args.iters)
             flop = 2 * m * n * k
-            print(json.dumps({
-                "m": m, "shape": name, "k": k, "n": n,
-                "quant_ms": round(quant_ms, 3), "gemm_ms": round(gemm_ms, 3), "fp16_ms": round(fp16_ms, 3),
-                "int4_tops": round(flop / gemm_ms / 1e9, 2), "fp16_tflops": round(flop / fp16_ms / 1e9, 2),
-            }), flush=True)
+            unsplit = ext.gemm_int4(a_packed, a_scale, w_packed, w_scale, None, torch.float32, 1)
+            for splits in (int(v) for v in args.splits.split(",")):
+                gemm_ms = time_ms(lambda: ext.gemm_int4(a_packed, a_scale, w_packed, w_scale, None, x.dtype, splits), args.iters)
+                split_out = ext.gemm_int4(a_packed, a_scale, w_packed, w_scale, None, torch.float32, splits)
+                print(json.dumps({
+                    "m": m, "shape": name, "k": k, "n": n, "splits": splits or f"auto={ext.gemm_int4_auto_splits(m, n, k)}",
+                    "quant_ms": round(quant_ms, 3), "gemm_ms": round(gemm_ms, 3), "fp16_ms": round(fp16_ms, 3),
+                    "int4_tops": round(flop / gemm_ms / 1e9, 2), "fp16_tflops": round(flop / fp16_ms / 1e9, 2),
+                    "vs_unsplit_rel": float(f"{((split_out - unsplit).abs().max() / unsplit.abs().max()).item():.1e}"),
+                }), flush=True)
             del x, w, w_packed, w_scale, a_packed, a_scale
 
 
