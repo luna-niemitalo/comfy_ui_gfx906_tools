@@ -23,10 +23,12 @@ Batches of 2+ skip all of the above: each rank runs half the batch
 unmodified, with no exchange.
 """
 import copy
+import logging
 import threading
 
 import torch
 
+import comfy.model_management
 import comfy.patcher_extension
 from comfy.ldm.flux.math import apply_rope
 
@@ -34,6 +36,12 @@ WRAPPER_KEY = "gfx906_row_split"
 # A rank that died leaves its peer waiting at the barrier; this bounds that
 # wait. Must exceed the slowest single block (~1 s at 2560x1440 today).
 BARRIER_TIMEOUT_S = 300
+# Working memory a rank needs beyond its weights. Measured 2560x1440, 600 text
+# tokens: ~2.4 GB with 3.75 GB of other models parked on the peer (quad
+# attention shrinks its chunks to fit, costing ~3%). Below this, split steps
+# risk an OOM mid-block, so the step runs on one GPU instead.
+PEER_HEADROOM_BYTES = int(2.5 * 2**30)
+AUTO = "auto"
 
 
 class _KVExchange:
@@ -107,19 +115,66 @@ def _batch_slice(value, batch, part):
     return value[part] if torch.is_tensor(value) and value.ndim > 0 and value.shape[0] == batch else value
 
 
+def _module_bytes(module):
+    return sum(t.numel() * t.element_size() for t in (*module.parameters(), *module.buffers()))
+
+
 class _RowSplit:
     def __init__(self, device, min_image_tokens):
-        self.device = torch.device(device)
+        self.requested = device
         self.min_image_tokens = min_image_tokens
+        self.device = None
         self.replica = None
+        self.last_plan = None
+
+    def _log_plan(self, plan):
+        if plan != self.last_plan:
+            logging.info(f"[Gfx906 Split] {plan}")
+            self.last_plan = plan
+
+    def _pick_peer(self, main):
+        """The GPU rank 1 runs on: the requested one, or under "auto" the
+        other GPU with the most free memory. The main device comes from the
+        latent, because loader nodes (e.g. MultiGPU) choose it at runtime."""
+        if self.requested != AUTO:
+            peer = torch.device(self.requested)
+            if peer == main:
+                raise ValueError(f"Gfx906 Split: second GPU must differ from the model's GPU; "
+                                 f"expected a device other than {main}, got {peer} (use \"auto\")")
+            return peer
+        others = [torch.device("cuda", i) for i in range(torch.cuda.device_count()) if i != main.index]
+        if not others:
+            return None
+        return max(others, key=comfy.model_management.get_free_memory)
+
+    def _ensure_replica(self, dm, peer):
+        """Replica on `peer` if it fits there (freeing ComfyUI-managed models
+        on that GPU first if needed); else None and the step runs unsplit."""
+        if self.device != peer:
+            self.replica, self.device = None, peer
+        need = PEER_HEADROOM_BYTES + (0 if self.replica is not None else _module_bytes(dm))
+        if comfy.model_management.get_free_memory(peer) < need:
+            comfy.model_management.free_memory(need, peer)
+        free = comfy.model_management.get_free_memory(peer)
+        if free < need:
+            self._log_plan(f"one GPU: {peer} has {free / 2**30:.1f} GB free, a split needs {need / 2**30:.1f} GB")
+            return None
+        if self.replica is None:
+            self.replica = _replicate(dm, peer)
+        return self.replica
 
     def __call__(self, executor, x, timesteps, context, attention_mask, ref_latents, transformer_options, **kwargs):
         dm = executor.class_obj
         # ref latents would be appended whole on both ranks (duplicated keys)
         if ref_latents:
+            self._log_plan("one GPU: reference latents are not split")
             return executor(x, timesteps, context, attention_mask, ref_latents, transformer_options, **kwargs)
-        if self.replica is None:
-            self.replica = _replicate(dm, self.device)
+        peer = self._pick_peer(x.device)
+        if peer is None:
+            self._log_plan("one GPU: no second GPU")
+            return executor(x, timesteps, context, attention_mask, ref_latents, transformer_options, **kwargs)
+        if self._ensure_replica(dm, peer) is None:
+            return executor(x, timesteps, context, attention_mask, ref_latents, transformer_options, **kwargs)
 
         # batch >= 2 (several images, or cond+uncond under cfg): each GPU takes
         # half the batch, fully independent -- no per-block exchange at all
@@ -130,15 +185,19 @@ class _RowSplit:
             args1 = [_batch_slice(v, batch, half1) for v in (x, timesteps, context, attention_mask)]
             kwargs0 = {k: _batch_slice(v, batch, half0) for k, v in kwargs.items()}
             kwargs1 = {k: _batch_slice(v, batch, half1) for k, v in kwargs.items()}
+            self._log_plan(f"batch split: {x.device} x{half0.stop} + {peer} x{batch - half0.stop}")
             return self._run_pair(executor, args0, kwargs0, transformer_options, args1, kwargs1, transformer_options, 0, None)
 
         # small images don't amortize the per-block barrier
         h, w = x.shape[-2], x.shape[-1]
         if (h // dm.patch) * (w // dm.patch) < self.min_image_tokens:
+            self._log_plan(f"one GPU: {(h // dm.patch) * (w // dm.patch)} image tokens < min_image_tokens {self.min_image_tokens}")
             return executor(x, timesteps, context, attention_mask, ref_latents, transformer_options, **kwargs)
 
         # Latent row where rank 1 starts: half the token rows, on a patch boundary
         split = max(-(-h // dm.patch) // 2, 1) * dm.patch
+        self._log_plan(f"row split: {x.device} rows 0-{split // dm.patch} + {peer} rows "
+                       f"{split // dm.patch}-{-(-h // dm.patch)} (token rows)")
         exchange = _KVExchange()
         opts0 = _with_patches(transformer_options, _rank_patches(0, 0, exchange))
         opts1 = _with_patches(transformer_options, _rank_patches(1, split // dm.patch, exchange))
@@ -167,10 +226,14 @@ class _RowSplit:
         thread.start()
         try:
             out0 = executor(*args0, None, opts0, **kwargs0)
-        except BaseException:
+        except BaseException as e:
             if exchange is not None:
                 exchange.barrier.abort()
             thread.join()
+            # A broken barrier here only means the peer died first; its error
+            # (typically an OOM on the second GPU) is the one worth showing.
+            if isinstance(e, threading.BrokenBarrierError) and "error" in peer:
+                raise peer["error"] from e
             raise
         thread.join()
         if "error" in peer:
@@ -182,15 +245,16 @@ class Gfx906RowSplitKrea2:
     """MODEL -> MODEL. Runs each Krea2 sampling step on two GPUs: half the
     batch each when batch >= 2 (several images, or cond+uncond with cfg),
     otherwise half the image rows each. Replicates the diffusion model onto
-    `device` on first use (int4 Krea2: ~7.5 GB there)."""
+    the second GPU on first use (int4 Krea2: ~7.5 GB there); steps run on
+    one GPU when that GPU lacks room."""
 
     @classmethod
     def INPUT_TYPES(s):
-        devices = [f"cuda:{i}" for i in range(torch.cuda.device_count())]
+        devices = [AUTO] + [f"cuda:{i}" for i in range(torch.cuda.device_count())]
         return {
             "required": {
                 "model": ("MODEL",),
-                "device": (devices, {"default": devices[-1]}),
+                "device": (devices, {"default": AUTO, "tooltip": "Second GPU. auto: whichever GPU the model is not on with the most free VRAM, checked every step."}),
                 "min_image_tokens": ("INT", {"default": 2048, "min": 0, "max": 1 << 20, "tooltip": "Single-image steps below this many image tokens (latent pixels / 4) run on one GPU: the per-block sync costs more than it saves. Batches of 2+ always split by batch."}),
             }
         }
