@@ -57,15 +57,18 @@ with torch.inference_mode():
             latent = torch.randn(1, 16, 1, h // 8, w // 8, generator=g)
             for patched in (False, True):
                 comfy.ops.disable_weight_init.Conv3d._conv_forward = conv3d_as_2d if patched else original_conv_forward
-                decode(vae, latent[..., :64, :64])  # warm up MIOpen kernel selection for this config
-                img, seconds = decode(vae, latent)
+                # first decode tunes MIOpen for every tile shape at this size; time the best of the next 2
+                img, first = decode(vae, latent)
+                seconds = min(decode(vae, latent)[1] for _ in range(2))
                 key = (res, str(dtype).split(".")[-1], "conv2d" if patched else "conv3d")
                 ref = variants.get((res, "float32", "conv3d"))
                 rec = {"res": res, "dtype": key[1], "conv": key[2], "seconds": round(seconds, 2),
-                       "nan": bool(torch.isnan(img).any())}
+                       "first_s": round(first, 2), "nan": bool(torch.isnan(img).any())}
                 if ref is not None:
                     d = (img.float().cpu() - ref.float()).abs()
-                    rec.update(max_diff=round(d.max().item(), 4), mean_diff=round(d.mean().item(), 5))
+                    worst = torch.nonzero(d == d.max())[0].tolist()  # [B, (T,) H, W, C]
+                    rec.update(max_diff=round(d.max().item(), 4), mean_diff=round(d.mean().item(), 5),
+                               worst_at=worst, px_over_0_05=int((d.amax(-1) > 0.05).sum()))
                 else:
                     variants[key] = img.cpu()
                 print(json.dumps(rec), flush=True)
