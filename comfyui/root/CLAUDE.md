@@ -35,7 +35,10 @@ Run Krea2 (and other DiT image models) fast on 2x Radeon VII (gfx906) via a nati
 ## Resume
 
 - **Last state**: all work committed (int4 node repo, `develop/` repo, `rvii-perf`).
-  Batch split verified bit-identical. Not yet run end-to-end in the real UI workflow.
+  Batch split verified bit-identical. Fixed from Luna's workflow run: int4 text encoder
+  fp16/fp32 rotation mismatch, text-encoder VRAM (11 GB reserved -> 3.5 GB), CPU fp32
+  matmul segfault (flake now puts LP64 `openblasCompat` first on LD_LIBRARY_PATH).
+  Awaiting Luna's re-run of the real UI workflow.
 - **Next step**: design an int8 attention kernel (Sage-style: int8 Q/K per-block,
   K mean-smoothing, fp16 PV) and bench it against quad attention at 2560x1440.
 - **Hazards**:
