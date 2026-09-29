@@ -81,6 +81,7 @@ def anchored_sampler(ref_model_space, anchor, release, sigma_start):
                 return d
             low = resize(d.float(), ref_model_space.shape[-2:], "area")
             return d + w * resize(ref_model_space - low, d.shape[-2:], "bicubic").to(d.dtype)
+        denoise.inner_model = model.inner_model  # er_sde reads model_sampling through it
         return kds.sample_er_sde(denoise, x, sigmas, extra_args=extra_args, callback=callback, disable=disable)
     return comfy.samplers.KSAMPLER(sample)
 
