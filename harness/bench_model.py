@@ -33,6 +33,8 @@ parser.add_argument("--breakdown", action="store_true", help="split one forward 
 parser.add_argument("--split-device", default=None, help="apply Gfx906RowSplitKrea2 with this second GPU")
 parser.add_argument("--check", action="store_true", help="max relative error of the (possibly split) forward vs a plain one")
 parser.add_argument("--ballast-gb", type=float, default=0.0, help="hold this much VRAM on --split-device (stands in for a text encoder + VAE parked there)")
+parser.add_argument("--fused-attention", default=None, metavar="QK/PV", help="apply Gfx906FusedAttention, e.g. int4/u8 (qk: fp16|int8|int4, pv: fp16|u8)")
+parser.add_argument("--skip-below", type=float, default=1e-4, help="Gfx906FusedAttention tile skip threshold")
 cli = parser.parse_args()
 
 import comfy.cli_args  # noqa: E402  (must precede bootstrap: attention is picked at comfy import)
@@ -140,15 +142,20 @@ def main():
         dm = model.model.diffusion_model
         dtype = model.model.get_dtype()
         print(json.dumps({"load_s": round(load_s, 1), "dtype": str(dtype), "attention": cli.attention,
+                          "fused_attention": cli.fused_attention,
                           "noflash": cli.noflash, "vram_gb": round(torch.cuda.memory_allocated(device) / 2**30, 2)}), flush=True)
 
-        # The sampler hands the patcher's wrappers to the model via
-        # transformer_options; do the same so wrapper-based nodes take effect.
+        # The sampler hands the patcher's transformer_options (incl. an
+        # attention override) and wrappers to the model; do the same so
+        # patch- and wrapper-based nodes take effect.
+        if cli.fused_attention:
+            qk, pv = cli.fused_attention.split("/")
+            (model,) = pipeline.call_node("Gfx906FusedAttention", model=model, qk=qk, pv=pv, skip_below=cli.skip_below)
         if cli.split_device:
             (model,) = pipeline.call_node("Gfx906RowSplitKrea2", model=model, device=cli.split_device, min_image_tokens=0)
             other_gpu = f"cuda:{1 - device.index}" if cli.split_device == "auto" else cli.split_device
             ballast = torch.empty(int(cli.ballast_gb * 2**30), dtype=torch.uint8, device=other_gpu)  # noqa: F841 (held for the run)
-        options = {"wrappers": model.wrappers}
+        options = {**model.model_options["transformer_options"], "wrappers": model.wrappers}
 
         for res in cli.res.split(","):
             w, h = parse_res(res)
