@@ -55,8 +55,15 @@ Run Krea2 (and other DiT image models) fast on 2x Radeon VII (gfx906) via a nati
   Bench with 600 text tokens: 23.9 s/step 1 GPU, 13.06 s 2 GPUs.
   Split node now auto-picks the second GPU and falls back when it's full -- not yet
   tried by Luna in the UI.
-- **Next step**: design an int8 attention kernel (Sage-style: int8 Q/K per-block,
-  K mean-smoothing, fp16 PV) and bench it against quad attention at 2560x1440.
+- **Attention exploration (2026-09-29)**: real Q/K/V captured at 1024x576 (4 blocks x 3
+  steps). Attention-output rel. error vs fp32: fp16 ~0.1%; int8 per-token QK
+  (K mean-subtracted) + fp16 PV 0.4-0.9% -- the only viable scheme. int8 per-64-token
+  blocks fail block 0 (Q/K outliers to 597: 20-31%); int4 QK 5-15% even with Hadamard;
+  int8 PV 4-11% (most P mass < 1/127). Emulated renders (same seed): int8-token, int8-block
+  and exact fp32 all differ from the fp16 baseline by similar amounts (PSNR 21-23 dB) --
+  the 8-step trajectory amplifies any numeric change; no visible artifacts.
+- **Next step**: PAUSED for Luna's review. Proposed: fused gfx906 attention kernel
+  (flash-style, native GQA, int8 per-token QK via v_dot4, fp16 PV). Then scale-math work.
 - **Hazards**:
   - 2026-09-28 hard hang = kernel Oops in kswapd (`__pgalloc_tag_sub`, alloc profiling),
     not GPU. Keep host-RAM churn low: few process launches, whitelist custom nodes.
