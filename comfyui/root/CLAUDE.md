@@ -250,7 +250,43 @@ Run Krea2 (and other DiT image models) fast on 2x Radeon VII (gfx906) via a nati
         steps (sigma tied to size, not step index) vs multiplicative at 4K; oversample
         (grow past target, Lanczos down = supersampling); Cycles-style open-ended mode
         (grow until a Stop button -- needs server route + JS, ComfyUI Interrupt drops
-        outputs -- then settle at the final size with falling sigma). Later: int4 treatment (bf16 is fp32 math
+        outputs -- then settle at the final size with falling sigma).
+        Luna refined Cycles mode: set target, grow to it, then keep denoising (more steps
+        or growing past it) until Stop or noise threshold. Threshold on FULL-resolution
+        Immerkaer noise (Luna; the 720p-shrunk value counts texture and rises), default < 1.
+        Multiplicative (geometric) stays as an option -- proven. Order: A/B, oversample,
+        Cycles mode.
+        A/B at 4K done (node d4f196f adds growth_mode linear; sigma/anchor follow log-area
+        fraction): linear 217 s vs geometric 106 s, noise 0.47 vs 0.57, detail_720 9.6 vs
+        10.0. **Luna: linear better -- "massively slower, but clean AF"**; converges faster
+        on noise => geometric for fixed-target, linear when a noise target is set.
+        Oversample (node `oversample` input) test: geometric 8 steps to 5760x3240 -> Lanczos
+        to 3840x2160 (scale_test `@WxH`), running.
+        Luna's constant-output idea (queued as scale_test `linear:5760x3240:256=3840x2160`):
+        output size fixed (4K); internal grows linearly from native (upscaled to output
+        early, supersampled once past it); measure noise AT OUTPUT each step, stop below
+        threshold. Test runs to the cap without stopping to see where a threshold should
+        sit (upscaled early steps are smooth -> noise low but soft; may need a detail floor).
+        Oversample result: 300 s, detail/px 4.79 (plain 4.18), noise 0.64 (texture).
+        Constant-output result (linear to 5760 wide, measured at 3840x2160): noise AT
+        OUTPUT rises with texture (0.18 -> 0.8), unusable as stop signal; detail at output
+        climbs to 5.2 by ~3500 internal, flat after; change per step 24 -> 38 dB =
+        convergence signal (Cycles-like). Luna: supersampled steps add coherence to
+        micro-detail (brush strokes, grass blades); far past output (~5000+ internal) the
+        details "start to resemble AI upscaling artifacts" -- idea: add noise between
+        steps (sigma floor), esp. for targets far above native. **Luna: pause, commit, make
+        functional robust nodes.**
+     i. **Nodes (ComfyUI-ResolutionGrowth c47ce4e, README.md)**: "Resolution Growth" (fixed
+        target; geometric|linear, oversample, sigma_end floor) and "Resolution Growth
+        (Progressive)" (fixed output; linear internal growth up to max_oversample; stops on
+        convergence -- change >= converge_db (35) once internal >= output -- the cap, or the
+        "Stop (keep result)" button: POST /resolution_growth/stop, web/resolution_growth.js,
+        matched to UNIQUE_ID incl. subgraph "a:b" ids). Inputs validated at the node boundary
+        (checked with a stub VAE: every bad input names expected vs actual). Headless tests
+        (node_test.py): fixed 2560x1440 69 s; progressive + simulated Stop after 4/10 steps,
+        request cleared; progressive to convergence: 2560x1440 output stopped at step 9/10
+        (internal 3584x2016, 35.5 dB), 217 s, deterministic (steps match the Stop run). NOT yet tried in the UI (the JS button and route only exist with a
+        running server). Later: int4 treatment (bf16 is fp32 math
         on gfx906). Earlier notes: PiD node registered via nodes.load_custom_node (the
         experiments' whitelist excludes it): compose 1024x576 -> PiDDecode qwenimage 2kto4k -> 4096x2304
         vs VAE + Lanczos 4x. PiD is per latent space (VAE), not per model. Files moved by
