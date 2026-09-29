@@ -155,8 +155,11 @@ Run Krea2 (and other DiT image models) fast on 2x Radeon VII (gfx906) via a nati
      (`x0 <- x0 + w(progress) * up(ref - down(x0))`, ILVR-style) with a user-shaped
      release curve. Prototype `progressive.py` (variants: native, hires_s0.5,
      hires_s0.5_anchor, hires_s0.7_anchor, progressive_2stage) -> `develop/out/progressive/`.
-     native 1280x720 ran (25.8 s, detail 10.62); upscale variants crashed on 5-D Qwen
-     latents [B,C,T,H,W], fixed (`resize()`), not yet rerun. Reference: SPEED
+     Ran (1 GPU, int4/u8 attention; direct 8 steps at 2560x1440 ~156 s, detail 15.6):
+     hires_s0.5 113 s / 11.2, hires_s0.5_anchor 114 s / 10.8, hires_s0.7_anchor 135 s /
+     13.1, progressive_2stage (1792x1008 s0.55x3 -> 2560x1440 s0.45x3) 119 s / 13.2.
+     Awaiting Luna's visual verdict (splotch-free? anchor keeps composition? detail?)
+     -> decides the node's knobs/defaults. Reference: SPEED
      (`custom_nodes/ComfyUI-SPEED`, spectral expansion + kappa re-timing, no anchor, no
      curve control). Goal after the prototype: a node with an adjustable scale/denoise/
      anchor curve and a schedule preview.
