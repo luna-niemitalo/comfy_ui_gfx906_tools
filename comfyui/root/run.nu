@@ -47,6 +47,7 @@ let whitelist_custom_nodes = [
   #SwarmComfyCommon     # Shared SwarmUI node utilities
   ComfyUI-GGUF         # GGUF / LLM loader nodes
   ComfyUI-Gfx906Int4   # gfx906 int4 quantization test node
+  ComfyUI-ResolutionGrowth # compose at native size, grow to the target in small tiled steps
   ComfyUI-Flux2Klein-Enhancer
   #AspectRatioResolution # Custom aspect ratio node with better behavior
   #MaterialSaver	  # Advanced prompt composition node
