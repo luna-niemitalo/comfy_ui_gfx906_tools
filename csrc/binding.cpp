@@ -170,4 +170,5 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
           py::arg("q_scale"), py::arg("K"), py::arg("k_scale"), py::arg("Vt"), py::arg("v_scale"), py::arg("qk_mode"),
           py::arg("pv_mode"), py::arg("skip_below"), py::arg("keep") = py::none());
     m.def("attention_block_rows", &attention_block_rows, "query rows per attention workgroup (= keep-mask block)");
+    m.def("attention_max_tiles", &attention_max_tiles, "most key tiles a keep mask supports");
 }

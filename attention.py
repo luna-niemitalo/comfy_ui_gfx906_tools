@@ -13,7 +13,7 @@ Accuracy of each mode: CLAUDE.md "Attention exploration".
 """
 import torch
 
-from . import ops
+from . import block_sparse, ops
 
 HEAD_DIM = 128
 TILE = 64
@@ -96,7 +96,10 @@ def _gqa_repeat(diffusion_model):
     return attn.heads // attn.kvheads if attn is not None else 1
 
 
-def _make_override(qk, pv, skip_below, gqa_repeat):
+def _make_override(qk, pv, skip_below, gqa_repeat, sparse_tau, max_missed):
+    sparsity = block_sparse.SparsityState(sparse_tau, max_missed, block_rows(qk)) if sparse_tau > 0 else None
+    max_tiles = ops._get_ext().attention_max_tiles()
+
     def override(func, q, k, v, heads, mask=None, attn_precision=None, skip_reshape=False,
                  skip_output_reshape=False, **kwargs):
         # The kernel's contract: [B, H, L, 128] inputs, no mask, no custom
@@ -110,7 +113,10 @@ def _make_override(qk, pv, skip_below, gqa_repeat):
                         skip_output_reshape=skip_output_reshape, **kwargs)
         if gqa_repeat > 1 and k.shape[1] == q.shape[1]:
             k, v = k[:, ::gqa_repeat], v[:, ::gqa_repeat]
-        return fused_attention(q, k, v, qk, pv, skip_below).to(q.dtype)
+        keep = None
+        if sparsity is not None and -(-k.shape[2] // TILE) <= max_tiles:
+            keep = sparsity.keep(q, k, kwargs.get("transformer_options") or {})
+        return fused_attention(q, k, v, qk, pv, skip_below, keep).to(q.dtype)
     return override
 
 
@@ -128,6 +134,8 @@ class Gfx906FusedAttention:
                 "qk": (list(QK_MODES), {"default": "int4", "tooltip": "Q.K precision. int4 (Hadamard-rotated) is fastest; fp16 is the exact reference."}),
                 "pv": (list(PV_MODES), {"default": "u8", "tooltip": "softmax.V precision. u8 uses a per-64-key-tile scale."}),
                 "skip_below": ("FLOAT", {"default": 1e-4, "min": 0.0, "max": 0.1, "step": 1e-5, "tooltip": "Skip a key tile's P.V when its largest attention weight is below this fraction of every row's peak (0 = never)."}),
+                "sparse_tau": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 0.999, "step": 0.001, "tooltip": "Block-sparse attention: skip whole (query block, key tile) pairs outside the predicted top tau of attention mass (0 = off; 0.995 tested). The first step of a run is dense and decides per layer and head where the prediction is safe."}),
+                "max_missed": ("FLOAT", {"default": 0.02, "min": 0.0, "max": 0.2, "step": 0.005, "tooltip": "Block-sparse calibration: a head runs sparse only if the prediction drops at most this fraction of its exact attention mass on the first step."}),
             }
         }
 
@@ -136,9 +144,9 @@ class Gfx906FusedAttention:
     CATEGORY = "gfx906"
     TITLE = "Gfx906 Fused Attention"
 
-    def patch(self, model, qk, pv, skip_below):
+    def patch(self, model, qk, pv, skip_below, sparse_tau, max_missed):
         gqa_repeat = _gqa_repeat(model.model.diffusion_model)
         model = model.clone()
         model.model_options["transformer_options"]["optimized_attention_override"] = _make_override(
-            qk, pv, skip_below, gqa_repeat)
+            qk, pv, skip_below, gqa_repeat, sparse_tau, max_missed)
         return (model,)
