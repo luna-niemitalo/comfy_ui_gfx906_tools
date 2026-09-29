@@ -164,7 +164,79 @@ Run Krea2 (and other DiT image models) fast on 2x Radeon VII (gfx906) via a nati
      off-manifold bicubic latent upscale. Plan (Luna: "go ahead", this order):
      a. RoPE position interpolation via Krea2's `post_input` patch (scale img_ids
         rows/cols by sqrt(4096/tokens); DyPE-style `s**(sigma**2)`): `rope_test.py`
-        (direct 8-step 2560x1440 and hires_s0.5_anchor, each pi/dype) -> RUNNING.
+        (direct 8-step 2560x1440 and hires_s0.5_anchor, each pi/dype). DONE (s / detail):
+        direct_pi 146 / 10.6, direct_dype 154 / 11.3, hires_anchor_pi 110 / 10.1,
+        hires_anchor_dype 111 / 10.6. Luna: direct_pi no splotches but fine detail
+        fragmented (reeds lose coherence: PI squeezes the high-freq neighbour bands too);
+        direct_dype = best so far, some splotchiness back (true positions late), far less
+        than unpatched; hires_anchor_pi splotchy + noisy, worst (bicubic latent upscale +
+        anchor pinning to it). Next candidates: tune the DyPE exponent / floor; NTK/YaRN
+        (squeeze only low-freq RoPE bands -- needs a patch of Krea2's rope frequencies,
+        not img_ids). `yarn_test.py` (object-patches `pe_embedder`; exact vs stock at s=1):
+        yarn_a1_b8 161 s / 11.1 -- Luna: immediately significantly better, noise gone,
+        some splotchiness left. yarn_a1_b8_temp 164 / 11.3, yarn_a0.5_b4 165 / 12.1,
+        dype_p4 166 / 12.4. Luna: all some splotchiness; dype_p4 best but some
+        fragmentation, yarn_a0.5_b4 next. Queued: YaRN band split + DyPE-p4 release
+        (`yarn_dype_*`, sigma handed to the embedder by a post_input patch).
+     b. tiled_test.py (6 tiles of 1024 px, overlap 256, 3 tiles per call -- 6 OOMed):
+        latent-upscale s0.5 anchor 130 s / 11.0 (Luna: the smear = bicubic latent
+        upscale), s0.35 9.7, pixel-upscale s0.5 anchor 105 s refine / 10.4 (Luna: best so
+        far, a bit too noisy), noanchor 11.7. Luna's 6/2 split (`cN`: composition 6 of 8
+        steps -> clean estimate -> pixel upscale -> re-noise to sigma_6 -> 2 tiled steps):
+        c6_pixel_anchor 24 + 54 s / 7.6, c6_pixel_noanchor 3.6 (likely soft).
+        Queued: c6_esrgan_noanchor (RealESRGAN_x4plus), c6n_pixel_noanchor (Luna: keep
+        the pre-pass noise -- split x_6 into clean (pixel-upscaled) + noise (white 2x
+        upsample, block sum/2 = parent; checked std 1.000, corr 0)).
+        Results: sigma_6 of the 8-step schedule is 0.513 (shift), so c6 = heavy re-noise
+        + only 2 steps. Luna: c6_pixel_noanchor best texture, splotchiness gone, but ghost
+        duplicate figures -- in EVERY variant after s0.5_anchor_pixel (incl. c6 anchor).
+        Cause: tiles take the whole prompt ("lone traveller ... lower left third") +
+        unfinished composition (c6) + anchor released early. c6n (kept noise, eps std
+        0.969) 4.0, c6_esrgan 5.7.
+        **Winner so far (Luna: "just phenomenal")**: `f8_pixel_s0.5_2step_hold` = full
+        8-step 1280x720 composition -> pixel (Lanczos) upscale -> re-noise 0.5 -> 2 tiled
+        steps, anchor 1.0 on step 1 only: 27 + 51 s = 79 s total (direct 2560x1440 ~150 s),
+        detail 6.9. f8_esrgan 27 + 59 s / 8.9 -- Luna: worse than Lanczos.
+        **Final pick: `f8_pixel_s0.5_2step_hold_detailprompt`** (same + subject-free tile
+        prompt): Luna: removes the remaining duplicate, slightly better. 27 + 51 s.
+        => node design: composition steps, scale, re-noise sigma, detail steps, anchor
+        strength + hold, tile size/overlap, upscale method (Lanczos default; model
+        upscaler / PiD optional), separate detail prompt (manual; later VLM-derived).
+        yarn_dype hybrids: a0.5_b4_p4 164 s / 14.3, a1_b8_p4 166 s / 13.8 (not yet judged).
+     e'. PiD WORKS (pid_test.py, two processes: `compose` saves the latent, `decode bf16`
+        runs PiD alone -- Krea2 int4 is not freed by PiD's unload). 1024x576 -> 4096x2304:
+        compose 17 s + PiD 146 s (incl. loads), detail 16.5 (Lanczos 4x: 1.4). Needs:
+        bf16 forced (comfy lists bf16|fp32; fp32 OOMs, fp16 = all-NaN), Gemma TE on cuda:1
+        via MultiGPU's text-encoder device (4.9 GB; on cuda:0 it OOMed). cuda:0 holds
+        only PiD (2.5 GB). Luna: changes the image a lot but looks good; slightly prefers
+        the f8 detail-prompt tiled result, but PiD "unmatched for 4K+".
+     f. Continuous resolution growth (Luna: resolution as another dimension of the same
+        image, like video frames): `grow_test.py` -- every step pixel-upscales the last
+        clean estimate ~1.12-1.2x, re-noises to that step's sigma (0.5 -> 0), one tiled
+        detail-prompt step, anchor fading (1 - (k-1)/n)^2. Variants n4_2560, n6_2560,
+        n6_3840. tiled_sampler now takes non-square / sub-tile images.
+        n4_2560 26 + 141 s / 5.9 (Luna: "kinda good, more smaller steps even if slower is
+        definitely worth it"), n6_2560 26 + 200 s / 5.4. Much of the growth time was the
+        VAE: MIOpen builds kernels per new conv shape (~8 s per new VAE size; FIND_MODE=FAST
+        ~0 but slower steady; GEMM-only 0.9 s; MIOpen off 0 s and 1.2 s steady vs 0.39,
+        vae_shape_test.py). Luna: MIOpen OFF globally -> `--disable-miopen` (7086d351,
+        run.nu also MIOPEN_FIND_MODE=FAST backstop). 2 GPUs (--split, 4 tiles per call):
+        ~2 s per tile per step.
+        **4K crash fixed**: n6_3840 segfaulted entering the 3840x2160 step (1 and 2 GPUs,
+        not concurrency, not offload). gdb on the core (flake now has gdb, 7abfcd4b):
+        rocr::core::Runtime::AsyncEventsLoop null deref (ROCm 7.2 HSA runtime). Passes with
+        AMD_SERIALIZE_KERNEL=3 and with a host sync per tile batch (5 batches of 3 queued
+        unsynced -> crash; 2-3 batches never). tiled_test.SYNC_PER_BATCH default on; cost
+        unmeasurable (58.2 vs 59.2 s serialized). Any tiled node must keep this.
+        Verified: `grow_n6_3840_split.png` 3840x2160, 2 GPUs: compose 16 s + growth 115 s
+        (steps: denoise 3.2 / 11.4 / 11.7 / 16.0 / 16.4 / 34.2 s, upscale 1.5-7.5 s),
+        detail 4.2. Luna's verdict vs PiD pending. Next: node with size/sigma/anchor curves. Later: int4 treatment (bf16 is fp32 math
+        on gfx906). Earlier notes: PiD node registered via nodes.load_custom_node (the
+        experiments' whitelist excludes it): compose 1024x576 -> PiDDecode qwenimage 2kto4k -> 4096x2304
+        vs VAE + Lanczos 4x. PiD is per latent space (VAE), not per model. Files moved by
+        Luna to /media/luna/models/{diffusion_models,text_encoders}/nvidia_pid/.
+        Chain (detached): tiled_test2 -> tiled_test3 -> yarn_test2 -> pid_test,
+        logs next to the scripts, rc lines in run_chain.log.
      b. Tiled detail pass at native tile size (MultiDiffusion blend of overlapping
         ~1 MP tiles per step, low band anchored; tiles split across both GPUs).
         Luna's refinement: caption the composition (or per tile) with a VLM and prune
