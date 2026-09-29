@@ -118,7 +118,45 @@ Run Krea2 (and other DiT image models) fast on 2x Radeon VII (gfx906) via a nati
   with `develop/out/attn_trace/`): quad attention at 2560x1440 is as splotchy as fused;
   at 1024x576 all fused variants match the study renders. Krea2 is trained ~1 MP; for
   4K, suggest a two-pass hires fix (native-size render, upscale, low-denoise pass).
-- **Next step**: Luna's call on calibration persistence; then prep kernel, then scale-math.
+- **CHECKPOINT 2026-09-29 (open threads, resumable)**. Experiment scripts are copied to
+  `develop/experiments/2026-09-29/` (the session scratchpad may be gone). They resolve
+  captures and the prompt relative to their own directory; captures are not in git:
+  regenerate with `capture_qkv_hr.py` there (2560x1440, all steps, blocks 0/9/18/27,
+  ~8.8 GB into `attn_capture_hr/` next to it -- keep it out of git). Run everything via
+  `direnv exec . python ...` from the repo root, hard timeouts, background + logs.
+  1. **Calibration persistence (Luna: "benchmark if beneficial, cache properly")**.
+     a. Transfer test: `record_missed.py` records per-head missed mass (pooled mask,
+        tau 0.995) for every call of 4 runs at 2560x1440 (landscape seed 0, portrait,
+        city, landscape seed 1) -> `missed_<run>.pt`; `analyze_missed.py [bound]` says
+        whether step-0 verdicts of one run hold on other runs/steps. landscape_s0 and
+        portrait_s0 recorded, city + seed 1 were running.
+     b. If verdicts transfer: persistent cache. Design agreed in chat: JSON in ComfyUI's
+        user dir (`folder_paths.get_user_directory()/gfx906_int4/attention_calibration.json`,
+        survives restarts, comfy cache wipes, browser); key = model fingerprint (hash of
+        a few weight tensors, rename-proof) + image tokens (from
+        `transformer_options["img_slice"]`, not Lk: text length varies) + qk block rows +
+        tau; value = per-layer per-head missed mass (so max_missed can change without
+        recalibrating); atomic write (tmp + rename) under the existing lock. Merge policy
+        depends on (a): keep worst-seen missed across runs if verdicts vary.
+     c. Benefit benchmark: alternating full 8-step renders (dense, sparse+warm cache,
+        dense, sparse+warm cache) at 2560x1440 -- thermal drift is +-3%, single runs lie.
+  2. **Progressive upscale (Luna's idea)**: compose at native size, then refine up in
+     stages; each stage re-noises the upscaled latent to sigma_start and anchors the
+     low band of every denoised prediction to the previous stage
+     (`x0 <- x0 + w(progress) * up(ref - down(x0))`, ILVR-style) with a user-shaped
+     release curve. Prototype `progressive.py` (variants: native, hires_s0.5,
+     hires_s0.5_anchor, hires_s0.7_anchor, progressive_2stage) -> `develop/out/progressive/`.
+     native 1280x720 ran (25.8 s, detail 10.62); upscale variants crashed on 5-D Qwen
+     latents [B,C,T,H,W], fixed (`resize()`), not yet rerun. Reference: SPEED
+     (`custom_nodes/ComfyUI-SPEED`, spectral expansion + kappa re-timing, no anchor, no
+     curve control). Goal after the prototype: a node with an adjustable scale/denoise/
+     anchor curve and a schedule preview.
+  3. **VAE speed + previews (Luna's proposal, investigating)**: 0 time decode vs sampling
+     at 2560x1440/4K; 3 TAESD/live previews broken (latent format / preview method /
+     MultiGPU patch?); 1 collapse causal 3-D convs to 2-D when T=1; 2 auto fp16/fp32 VAE
+     precision with a check; 4 read `custom_nodes/PiD`. Findings go below as they land.
+- **Next step**: finish 1a/2 runs, analyze; VAE items in parallel (CPU/code reading);
+  later prep kernel, scale-math.
 - **Hazards**:
   - 2026-09-28 hard hang = kernel Oops in kswapd (`__pgalloc_tag_sub`, alloc profiling),
     not GPU. Keep host-RAM churn low: few process launches, whitelist custom nodes.
