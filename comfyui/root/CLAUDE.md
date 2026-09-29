@@ -61,9 +61,13 @@ Run Krea2 (and other DiT image models) fast on 2x Radeon VII (gfx906) via a nati
   blocks fail block 0 (Q/K outliers to 597: 20-31%); int4 QK 5-15% even with Hadamard;
   int8 PV 4-11% (most P mass < 1/127). Emulated renders (same seed): int8-token, int8-block
   and exact fp32 all differ from the fp16 baseline by similar amounts (PSNR 21-23 dB) --
-  the 8-step trajectory amplifies any numeric change; no visible artifacts.
+  the 8-step trajectory amplifies any numeric change; no visible artifacts. int4 QK renders
+  (per-token, Hadamard-rotated head dim) also clean (PSNR 20.7 vs fp32's 21.1); without
+  the rotation drifts further (19.0). Luna: int8 images look fine. Sheet:
+  `develop/out/attn_quant/attn_sheet.png` (gitignored).
 - **Next step**: PAUSED for Luna's review. Proposed: fused gfx906 attention kernel
-  (flash-style, native GQA, int8 per-token QK via v_dot4, fp16 PV). Then scale-math work.
+  (flash-style, native GQA, QK precision compile-time: int8 v_dot4 or int4+Hadamard
+  v_dot8; fp16 PV; est. ALU 1.28x / 1.51x vs fused fp16). Then scale-math work.
 - **Hazards**:
   - 2026-09-28 hard hang = kernel Oops in kswapd (`__pgalloc_tag_sub`, alloc profiling),
     not GPU. Keep host-RAM churn low: few process launches, whitelist custom nodes.
