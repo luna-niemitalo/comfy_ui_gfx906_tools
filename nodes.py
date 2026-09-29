@@ -56,11 +56,13 @@ class ResolutionGrowth:
                 "latent": ("LATENT", {"tooltip": "Finished composition at the model's native size."}),
                 "width": ("INT", {"default": 3840, "min": 256, "max": 16384, "step": SNAP_PX}),
                 "height": ("INT", {"default": 2160, "min": 256, "max": 16384, "step": SNAP_PX}),
-                "growth_steps": ("INT", {"default": 6, "min": 1, "max": 64, "tooltip": "One tiled denoise per step; more, smaller steps looked better (6 beat 4 beat one 2x jump)."}),
+                "growth_mode": (["geometric", "linear"], {"default": "geometric", "tooltip": "geometric: growth_steps steps, each the same ratio (shaped by size_shape). linear: +step_px of width per step, so steps get relatively smaller as the image grows."}),
+                "growth_steps": ("INT", {"default": 6, "min": 1, "max": 64, "tooltip": "geometric mode: one tiled denoise per step; more, smaller steps looked better (6 beat 4 beat one 2x jump)."}),
+                "step_px": ("INT", {"default": 256, "min": SNAP_PX, "max": 4096, "step": SNAP_PX, "tooltip": "linear mode: width added per step (height in proportion)."}),
                 "sigma_start": ("FLOAT", {"default": 0.5, "min": 0.01, "max": 100.0, "step": 0.01, "tooltip": "Noise level of the first growth step, in the model's sigma units (flow models: 0-1). Later steps follow the model's own schedule down towards 0."}),
-                "size_shape": ("FLOAT", {"default": 1.0, "min": 0.1, "max": 5.0, "step": 0.05, "tooltip": "Size curve: 1 = even geometric growth, > 1 = grow late (more steps near the start size), < 1 = grow early."}),
+                "size_shape": ("FLOAT", {"default": 1.0, "min": 0.1, "max": 5.0, "step": 0.05, "tooltip": "geometric mode size curve: 1 = even growth, > 1 = grow late (more steps near the start size), < 1 = grow early."}),
                 "anchor": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 2.0, "step": 0.05, "tooltip": "How strongly each step's low frequencies are pulled back to the composition. Keeps layout, stops tiles inventing duplicate subjects."}),
-                "anchor_shape": ("FLOAT", {"default": 2.0, "min": 0.1, "max": 8.0, "step": 0.1, "tooltip": "Anchor fade over the steps: weight = anchor * (1 - (k-1)/n) ** shape. Higher = released sooner."}),
+                "anchor_shape": ("FLOAT", {"default": 2.0, "min": 0.1, "max": 8.0, "step": 0.1, "tooltip": "Anchor fade with size: weight = anchor * (1 - f) ** shape, f = how far the step starts along the growth (log-area, 0..1). Higher = released sooner."}),
                 "cfg": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 30.0, "step": 0.1}),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 0xFFFFFFFFFFFFFFFF, "control_after_generate": True}),
                 "tile_size": ("INT", {"default": 1024, "min": 256, "max": 4096, "step": SNAP_PX, "tooltip": "Pixels; keep at the model's training size so attention never spans more positions than trained."}),
@@ -80,13 +82,13 @@ class ResolutionGrowth:
     CATEGORY = "sampling"
     TITLE = "Resolution Growth"
 
-    def sample(self, model, positive, negative, vae, latent, width, height, growth_steps, sigma_start,
-               size_shape, anchor, anchor_shape, cfg, seed, tile_size, tile_overlap, tile_batch,
+    def sample(self, model, positive, negative, vae, latent, width, height, growth_mode, growth_steps, step_px,
+               sigma_start, size_shape, anchor, anchor_shape, cfg, seed, tile_size, tile_overlap, tile_batch,
                upscale_method, detail_positive=None, upscale_model=None):
         samples, schedule = grow(model, detail_positive if detail_positive is not None else positive, negative,
-                                 vae, latent["samples"], (width, height), growth_steps, sigma_start, size_shape,
-                                 anchor, anchor_shape, cfg, seed, tile_size, tile_overlap, tile_batch,
-                                 upscale_method, upscale_model)
+                                 vae, latent["samples"], (width, height), growth_mode, growth_steps, step_px,
+                                 sigma_start, size_shape, anchor, anchor_shape, cfg, seed, tile_size, tile_overlap,
+                                 tile_batch, upscale_method, upscale_model)
         compression = vae.spacial_compression_decode()
         start = (latent["samples"].shape[-1] * compression, latent["samples"].shape[-2] * compression)
         return ({"samples": samples}, schedule_plot(schedule, start, (width, height)))
