@@ -47,6 +47,12 @@ the layout drift from the composition flat from 1.3 to 33 MP.
   out the subject and where it goes, or every tile draws one.
 - `tile_size`: keep it at the model's training size.
 - `tile_batch`: use an even number with a batch-splitting multi-GPU node.
+- `upscale_path` `tiny_vae`: does the between-step decode and encode with a tiny VAE (for
+  Krea2 / Wan 2.1 latents: lighttaew2_1) connected to `tiny_vae`.
+  - Linear 4K: about 3% faster, with slightly less detail.
+  - The final output is always decoded with the full VAE.
+  - The resize itself runs on the GPU as a float Lanczos. Most of each step's time is the
+    tile denoise.
 - ROCm: the growth steps' VAE calls run without MIOpen, because MIOpen rebuilds kernels for
   every new size. The tile loop also syncs after every batch, which works around a ROCm 7.2
   runtime crash.

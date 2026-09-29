@@ -2,6 +2,7 @@ import numpy as np
 import torch
 from PIL import Image, ImageDraw
 
+import comfy.model_management
 import latent_preview
 
 from . import growth, stop
@@ -103,6 +104,7 @@ def growth_inputs():
         "tile_overlap": ("INT", {"default": 256, "min": 0, "max": 2048, "step": 16}),
         "tile_batch": ("INT", {"default": 3, "min": 1, "max": 64, "tooltip": "Tiles per model call. With the Gfx906 two-GPU split node, use an even number (4 = 2 per GPU)."}),
         "upscale_method": (UPSCALE_METHODS, {"default": "lanczos", "tooltip": "Pixel-space resize between steps (Lanczos looked best)."}),
+        "upscale_path": (growth.UPSCALE_PATHS, {"default": "vae", "tooltip": "How each step reaches the next size. vae: decode, resize, encode with the full VAE (reference). tiny_vae: the same through tiny_vae (linear 4K: 3% faster, slightly less detail)."}),
     }
 
 
@@ -110,13 +112,16 @@ def optional_inputs():
     return {
         "detail_positive": ("CONDITIONING", {"tooltip": "Prompt for the tiles: materials, texture, style -- not the subject or its placement (every tile would draw it)."}),
         "upscale_model": ("UPSCALE_MODEL", {"tooltip": "Runs before the resize in every step (RealESRGAN tested worse than plain Lanczos)."}),
+        "tiny_vae": ("VAE", {"tooltip": "For upscale_path tiny_vae: a tiny VAE for the same latent space (Krea2 / Wan 2.1 latents: lighttaew2_1). The final output is still decoded with the full vae."}),
     }
 
 
-def make_grower(model, positive, negative, vae, latent, kw, detail_positive, upscale_model):
+def make_grower(model, positive, negative, vae, latent, kw, detail_positive, upscale_model, tiny_vae):
+    check(kw["upscale_path"] != "tiny_vae" or tiny_vae is not None,
+          "tiny_vae: expected a VAE connected when upscale_path is tiny_vae, got nothing")
     return growth.Grower(model, detail_positive if detail_positive is not None else positive, negative, vae,
                          latent["samples"], kw["cfg"], kw["seed"], kw["tile_size"], kw["tile_overlap"],
-                         kw["tile_batch"], kw["upscale_method"], upscale_model)
+                         kw["tile_batch"], kw["upscale_method"], upscale_model, kw["upscale_path"], tiny_vae)
 
 
 # ---------------------------------------------------------------------------------------------
@@ -151,7 +156,7 @@ class ResolutionGrowth:
     TITLE = "Resolution Growth"
 
     def sample(self, model, positive, negative, vae, latent, width, height, growth_mode, growth_steps, step_px,
-               size_shape, oversample, detail_positive=None, upscale_model=None, **kw):
+               size_shape, oversample, detail_positive=None, upscale_model=None, tiny_vae=None, **kw):
         grid = growth.snap_px(vae)
         start = composition_size(latent, vae)
         check_size("width/height", (width, height), grid)
@@ -167,7 +172,7 @@ class ResolutionGrowth:
         print(f"[Resolution Growth] {start[0]}x{start[1]} -> {end[0]}x{end[1]}: {growth.describe(start, schedule)}",
               flush=True)
 
-        grower = make_grower(model, positive, negative, vae, latent, kw, detail_positive, upscale_model)
+        grower = make_grower(model, positive, negative, vae, latent, kw, detail_positive, upscale_model, tiny_vae)
         preview = latent_preview.prepare_callback(model, len(sizes))
         x0 = latent["samples"]
         for k, (size, sigma, anchor) in enumerate(zip(schedule["sizes"], schedule["sigmas"], schedule["anchors"])):
@@ -175,7 +180,7 @@ class ResolutionGrowth:
             preview(k, grower.preview_latent(x0), None, len(sizes))
         if end != (width, height):
             x0 = growth.pixel_upscale(vae, x0, (width, height), "lanczos", None)
-        return ({"samples": x0}, schedule_plot(schedule, start))
+        return ({"samples": x0.to(comfy.model_management.intermediate_device())}, schedule_plot(schedule, start))
 
 
 class ResolutionGrowthProgressive:
@@ -208,7 +213,7 @@ class ResolutionGrowthProgressive:
     TITLE = "Resolution Growth (Progressive)"
 
     def sample(self, model, positive, negative, vae, latent, width, height, step_px, max_oversample, converge_db,
-               detail_positive=None, upscale_model=None, unique_id=None, **kw):
+               detail_positive=None, upscale_model=None, tiny_vae=None, unique_id=None, **kw):
         grid = growth.snap_px(vae)
         start = composition_size(latent, vae)
         output = (width, height)
@@ -224,16 +229,19 @@ class ResolutionGrowthProgressive:
               f"{width}x{height}, converge at {converge_db} dB: {growth.describe(start, schedule)}", flush=True)
 
         stop.clear(unique_id)
-        grower = make_grower(model, positive, negative, vae, latent, kw, detail_positive, upscale_model)
+        grower = make_grower(model, positive, negative, vae, latent, kw, detail_positive, upscale_model, tiny_vae)
         preview = latent_preview.prepare_callback(model, len(sizes))
         x0, image, report, reason = latent["samples"], None, [], "reached max_oversample"
         for k, (size, sigma, anchor) in enumerate(zip(schedule["sizes"], schedule["sigmas"], schedule["anchors"])):
             x0 = grower.step(k, x0, size, sigma, anchor)
             preview(k, grower.preview_latent(x0), None, len(sizes))
-            previous, image = image, growth.resize_image(growth.decode(vae, x0), output, "lanczos")
+            # the step VAE's decode, shared with the next step's upscale (Grower caches it)
+            previous, image = image, growth.resize_image(grower.decode_step(x0), output, "lanczos")
             change = None if previous is None else growth.psnr_db(image, previous)
+            t = grower.timing
             line = (f"step {k + 1}: internal {size[0]}x{size[1]}, sigma {sigma:.3f}, anchor {anchor:.2f}, "
-                    f"change {'-' if change is None else f'{change:.1f} dB'}, noise {growth.noise_sigma(image):.2f}")
+                    f"change {'-' if change is None else f'{change:.1f} dB'}, noise {growth.noise_sigma(image):.2f}, "
+                    f"upscale {t['upscale_s']:.1f} s, denoise {t['denoise_s']:.1f} s, overhead {t['overhead_s']:.1f} s")
             report.append(line)
             print(f"[Resolution Growth Progressive] {line}", flush=True)
             if stop.requested(unique_id):
@@ -245,8 +253,11 @@ class ResolutionGrowthProgressive:
         stop.clear(unique_id)
         report.append(f"stopped: {reason} after {len(report)} of {len(sizes)} steps")
         print(f"[Resolution Growth Progressive] {report[-1]}", flush=True)
-        return (image, {"samples": growth.encode(vae, image)}, schedule_plot(schedule, start, len(report) - 1),
-                "\n".join(report))
+        if grower.step_vae is not vae:  # the steps ran on tiny_vae; the output gets the full one
+            image = growth.resize_image(growth.decode(vae, x0), output, "lanczos")
+        out_device = comfy.model_management.intermediate_device()
+        return (image.to(out_device), {"samples": growth.encode(vae, image).to(out_device)},
+                schedule_plot(schedule, start, len(report) - 1), "\n".join(report))
 
 
 NODE_CLASS_MAPPINGS = {"ResolutionGrowth": ResolutionGrowth, "ResolutionGrowthProgressive": ResolutionGrowthProgressive}

@@ -13,6 +13,7 @@ Every default comes from develop/experiments/2026-09-29 (grow_test, tiled_test, 
 on Krea2 int4 at up to 7680x4320."""
 import contextlib
 import math
+import time
 
 import numpy as np
 import torch
@@ -119,11 +120,14 @@ def feather(tile_h, tile_w, overlap, device):
     return ramp(tile_h)[:, None] * ramp(tile_w)[None, :]
 
 
-def tiled_x0_sampler(ref, anchor, tile, overlap, tile_batch):
+def tiled_x0_sampler(ref, anchor, tile, overlap, tile_batch, timing):
     """KSAMPLER whose one step returns the model's clean estimate at sigmas[0], computed over
     overlapping tiles (feathered blend, MultiDiffusion), low band pulled to `ref` (the
-    composition, model space)."""
+    composition, model space). Writes timing["seconds"] and timing["tiles"].
+    (Skipping tiles whose region barely changed the step before was tried: on linear 4K every
+    tile changed > 0.5x the largest change, nothing to skip -- 2026-09-29, scale_test %skip.)"""
     def sample(model, x, sigmas, extra_args=None, callback=None, disable=None):
+        t0 = time.perf_counter()
         extra_args = extra_args or {}
         b = x.shape[0]
         H, W = x.shape[-2:]
@@ -144,13 +148,15 @@ def tiled_x0_sampler(ref, anchor, tile, overlap, tile_batch):
             # Cost unmeasurable (58.2 vs 59.2 s fully serialized).
             if torch.cuda.is_available():
                 torch.cuda.synchronize()
-            for j, (y, c) in enumerate(batch):
-                acc[..., y:y + th, c:c + tw] += d[j * b:(j + 1) * b] * weights
+            for n, (y, c) in enumerate(batch):
+                acc[..., y:y + th, c:c + tw] += d[n * b:(n + 1) * b] * weights
                 norm[y:y + th, c:c + tw] += weights
         x0 = (acc / norm).to(x.dtype)
+        timing["tiles"] = len(spans)
         if anchor > 0:
             low = resize(x0.float(), ref.shape[-2:], "area")
             x0 = x0 + (anchor * resize(ref - low, x0.shape[-2:], "bicubic")).to(x0.dtype)
+        timing["seconds"] = time.perf_counter() - t0
         return x0
     return comfy.samplers.KSAMPLER(sample)
 
@@ -163,10 +169,22 @@ def no_miopen():
     return contextlib.nullcontext()
 
 
+@contextlib.contextmanager
+def on_vae_device(vae):
+    """VAE outputs stay on the VAE's GPU (ComfyUI's intermediate device is the host unless
+    --gpu-only); restored afterwards."""
+    previous, vae.output_device = vae.output_device, vae.device
+    try:
+        yield
+    finally:
+        vae.output_device = previous
+
+
 def decode(vae, samples):
-    """IMAGE [B, H, W, C]; one latent at a time (video VAEs read a batch as frames)."""
+    """IMAGE [B, H, W, C] on the VAE's device; one latent at a time (video VAEs read a batch as
+    frames)."""
     images = []
-    with no_miopen():
+    with no_miopen(), on_vae_device(vae):
         for i in range(samples.shape[0]):
             (image,) = nodes.VAEDecodeTiled().decode(vae, {"samples": samples[i:i + 1]}, VAE_TILE_PX, VAE_OVERLAP_PX)
             images.append(image.reshape(-1, *image.shape[-3:])[:1])
@@ -175,19 +193,43 @@ def decode(vae, samples):
 
 def encode(vae, images):
     latents = []
-    with no_miopen():
+    with no_miopen(), on_vae_device(vae):
         for i in range(images.shape[0]):
             (latent,) = nodes.VAEEncodeTiled().encode(vae, images[i:i + 1], VAE_TILE_PX, VAE_OVERLAP_PX)
             latents.append(latent["samples"])
     return torch.cat(latents, 0)
 
 
+def lanczos_matrix(n_in, n_out, device, a=3):
+    """[n_out, n_in] Lanczos-a resampling weights; kernel widened by the downscale factor
+    (antialias, as PIL), edge taps clamped (replicate), rows normalised."""
+    scale = n_out / n_in
+    support = a / min(scale, 1.0)
+    centers = (torch.arange(n_out, device=device, dtype=torch.float64) + 0.5) / scale - 0.5
+    offsets = torch.arange(-math.ceil(support), math.ceil(support) + 1, device=device, dtype=torch.float64)
+    taps = centers.floor()[:, None] + offsets[None, :]
+    d = (taps - centers[:, None]) * min(scale, 1.0)
+    w = torch.sinc(d) * torch.sinc(d / a) * (d.abs() < a)
+    w = w / w.sum(1, keepdim=True)
+    m = torch.zeros(n_out, n_in, device=device, dtype=torch.float64)
+    m.scatter_add_(1, taps.clamp(0, n_in - 1).long(), w)
+    return m.float()
+
+
 def resize_image(images, size, method, upscale_model=None):
+    """IMAGE resize on the images' own device. lanczos: separable float Lanczos-3 as two
+    matmuls (ComfyUI's goes through 8-bit PIL on the host; same result to 53 dB,
+    upscale_bench.py); other methods: torch interpolate with antialias."""
     if upscale_model is not None:
         from comfy_extras.nodes_upscale_model import ImageUpscaleWithModel
         images = ImageUpscaleWithModel.execute(upscale_model, images)[0]
-    (images,) = nodes.ImageScale().upscale(images, method, size[0], size[1], "disabled")
-    return images
+    x = images.movedim(-1, 1).float()
+    w, h = size
+    if method == "lanczos":
+        x = lanczos_matrix(x.shape[-2], h, x.device) @ x @ lanczos_matrix(x.shape[-1], w, x.device).T
+    else:
+        x = F.interpolate(x, size=(h, w), mode=method, antialias=method in ("bilinear", "bicubic"))
+    return x.clamp(0, 1).movedim(1, -1)
 
 
 def pixel_upscale(vae, samples, size, method, upscale_model):
@@ -196,11 +238,19 @@ def pixel_upscale(vae, samples, size, method, upscale_model):
     return encode(vae, resize_image(decode(vae, samples), size, method, upscale_model))
 
 
+# how each step moves the previous clean estimate to the next size. Linear 4K growth (scale_test
+# +path): tiny_vae 212 vs 219 s, detail at 720p 9.10 vs 9.43. A latent-space resize was tested
+# and dropped (Luna): noise stuck at ~1.7 instead of falling, output never converged.
+UPSCALE_PATHS = ["vae", "tiny_vae"]
+
+
 class Grower:
-    """Runs growth steps for one sampling call: model, conditioning, reference and settings."""
+    """Runs growth steps for one sampling call: model, conditioning, reference and settings.
+    Keeps the last step's decoded image, so a caller that decodes a result (Progressive's
+    convergence check) and the next step's upscale share one decode."""
 
     def __init__(self, model, positive, negative, vae, composition, cfg, seed, tile_px, overlap_px, tile_batch,
-                 upscale_method, upscale_model):
+                 upscale_method, upscale_model, upscale_path="vae", tiny_vae=None):
         self.model, self.vae = model, vae
         self.guider = comfy.samplers.CFGGuider(model)
         self.guider.set_conds(positive, negative)
@@ -213,14 +263,36 @@ class Grower:
         self.overlap = 2 * (overlap_px // compression // 2)
         self.tile_batch = tile_batch
         self.upscale_method, self.upscale_model = upscale_method, upscale_model
+        self.upscale_path = upscale_path
+        self.step_vae = tiny_vae if upscale_path == "tiny_vae" else vae
+        self.decoded = None  # (latent tensor id, IMAGE) of the last decode by step_vae
+        self.timing = {}
+
+    def decode_step(self, x0):
+        """x0 decoded by the step VAE, reusing the last decode of the same latent."""
+        if self.decoded is None or self.decoded[0] is not x0:
+            self.decoded = (x0, decode(self.step_vae, x0))
+        return self.decoded[1]
+
+    def upscale(self, x0, size):
+        image = resize_image(self.decode_step(x0), size, self.upscale_method, self.upscale_model)
+        return encode(self.step_vae, image)
 
     def step(self, k, x0, size, sigma, anchor):
         comfy.model_management.throw_exception_if_processing_interrupted()
-        up = pixel_upscale(self.vae, x0, size, self.upscale_method, self.upscale_model)
+        t0 = time.perf_counter()
+        up = self.upscale(x0, size)
+        # no sync here: the upscale's tail on the VAE's GPU overlaps the denoise start (syncing
+        # for exact timing cost 12 s of 219 on linear 4K) -- upscale_s is a lower bound
+        t1 = time.perf_counter()
         noise = torch.randn(up.shape, generator=self.generator, dtype=torch.float32)
+        inner = {}
+        sampler = tiled_x0_sampler(self.ref, anchor, self.tile, self.overlap, self.tile_batch, inner)
         # comfy scales the noise into the clean latent for this model type (noise_scaling)
-        out = self.guider.sample(noise, up, tiled_x0_sampler(self.ref, anchor, self.tile, self.overlap, self.tile_batch),
-                                 torch.tensor([sigma, 0.0]), seed=self.seed + k, disable_pbar=True)
+        out = self.guider.sample(noise, up, sampler, torch.tensor([sigma, 0.0]), seed=self.seed + k, disable_pbar=True)
+        t2 = time.perf_counter()
+        self.timing = {"upscale_s": t1 - t0, "denoise_s": inner["seconds"], "overhead_s": t2 - t1 - inner["seconds"],
+                       "tiles": inner["tiles"]}
         return out.to(x0.device)
 
     def preview_latent(self, x0):
