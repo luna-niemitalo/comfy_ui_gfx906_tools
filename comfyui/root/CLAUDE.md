@@ -63,11 +63,15 @@ Run Krea2 (and other DiT image models) fast on 2x Radeon VII (gfx906) via a nati
   and exact fp32 all differ from the fp16 baseline by similar amounts (PSNR 21-23 dB) --
   the 8-step trajectory amplifies any numeric change; no visible artifacts. int4 QK renders
   (per-token, Hadamard-rotated head dim) also clean (PSNR 20.7 vs fp32's 21.1); without
-  the rotation drifts further (19.0). Luna: int8 images look fine. Sheet:
-  `develop/out/attn_quant/attn_sheet.png` (gitignored).
+  the rotation drifts further (19.0). Luna: int8 images look fine; can't tell int4 from
+  int8. int8 PV works with per-(row, 64-key tile) P scale (u8, v_dot4_u32_u8, V offset
+  to unsigned): +0.5-0.9% error, renders clean; a fixed 1/127 P scale was the 4-11%.
+  fp16 backend itself is 1.6-8.8% off in block 0 (outliers); int8 per-token beats it.
+  Sheets: `develop/out/attn_quant/attn_sheet*.png` (gitignored).
 - **Next step**: PAUSED for Luna's review. Proposed: fused gfx906 attention kernel
-  (flash-style, native GQA, QK precision compile-time: int8 v_dot4 or int4+Hadamard
-  v_dot8; fp16 PV; est. ALU 1.28x / 1.51x vs fused fp16). Then scale-math work.
+  (flash-style, native GQA; compile-time QK int8 v_dot4 | int4+Hadamard v_dot8, PV fp16 |
+  u8 per-tile; est. ALU vs fused fp16: i8/fp16 1.28x, i4/fp16 1.51x, i8/u8 ~1.8x,
+  i4/u8 ~2.3x). Then scale-math work.
 - **Hazards**:
   - 2026-09-28 hard hang = kernel Oops in kswapd (`__pgalloc_tag_sub`, alloc profiling),
     not GPU. Keep host-RAM churn low: few process launches, whitelist custom nodes.
