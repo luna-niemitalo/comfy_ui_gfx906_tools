@@ -358,6 +358,31 @@ Run Krea2 (and other DiT image models) fast on 2x Radeon VII (gfx906) via a nati
        VAE decode and part of the progressive-upscale idea.
      - Luna: 2 GPUs -- the split node already splits batch>=2 across both.
      - progressive.py: er_sde needs `denoise.inner_model` (fixed); rerun pending.
+     - **VAE int path (Luna: "implement the vae int path"), 2026-09-29, MIOpen off**:
+       profile (vae_profile.py): 2560x1440 tiled decode 3.46 s / peak 2.65 GB, encode 1.98 s /
+       1.7 GB (weights 0.48 GB -- the "5 GB" was never the VAE itself); 3x3 convs ~85%.
+       Quality emulation (vae_int_study.py, 32-channel blocks = the kernel's scheme): W8A8
+       58 dB decode / 59 encode, latent err 0.6%; W4A4 37-40 dB, 14% latent err (unusable
+       for growth re-encodes); Hadamard doesn't rescue int4. Built an int8 block-scaled GEMM
+       + implicit-GEMM conv (node repo d21d717, removed in 5f98c0d): GEMM 13.5-21 TOPS
+       (1.65-2.45x rocBLAS fp32; N=96 layers worst), end to end decode 2.59 / encode 1.61 s.
+       **ComfyUI's fp16 VAE is faster and better: 2.42 / 1.43 s, 66 dB** (with MIOpen it was
+       slower -- that's why fp32 was picked). fp16 checked finite on 4 renders + 2 stress
+       images, 65-82 dB (vae_fp16_check.py). run.nu now `--fp16-vae` (1e8fd548); needs
+       `--disable-miopen` to stay.
+     - **Calibration cache built** (node repo b70a9f6, `calibration` input, default persistent;
+       sparse_tau still defaults to 0 = off). calib_cache_bench.py, 2560x1440 8 steps, alternating:
+       dense 160.8 / 161.8 / 162.3 s, cached 156.0 / 156.8 / 157.0 s (-3.4%, ~5.3 s/run), per_run
+       158.6 s; learning runs 178-183 s (+~19 s each, 3 runs) -> break-even ~11 runs.
+       996/1344 heads sparse. PSNR vs dense: cached 19.7 dB, per_run 20.9 (trajectory change, as
+       every numeric change; Luna judged per_run equivalent before) -- cached NOT yet judged by
+       Luna: develop/out/calib_cache/{dense_1,cached_1,per_run}.png.
+     - **int4 GEMM scale math: not the bottleneck** (scale_math/bench_scale_math.py, speed-bound
+       variants of the production kernel, M 14400 / 4224, Krea2 shapes): production 40-41 TOPS,
+       64-value blocks 41-42, one-sided scale (per-token act or per-channel weight) 44-46,
+       two-level i24 sub-scales 35 (slower), NO rescale at all 41-43. The old "55 without scale
+       math" ceiling isn't reproducible in the full kernel (loads/LDS dominate). Best realistic
+       +11% on linears (~4%/step) needs a lossy format change -- not pursued.
 - **Next step**: finish 1a/2 runs, analyze; VAE items in parallel (CPU/code reading);
   later prep kernel, scale-math.
 - **Hazards**:
