@@ -218,6 +218,31 @@ class Gfx906Int4Ops(comfy.ops.disable_weight_init):
             else:
                 self.register_parameter("bias", None)
 
+        # Device plain float weights are quantized on while loading (see _load_from_state_dict);
+        # set by make_load_quantizing_ops. None: this class only accepts pre-packed weights.
+        quantize_device = None
+        quantized_on_load = 0  # per ops class from make_load_quantizing_ops: the loader's check
+
+        def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs):
+            key = prefix + "weight"
+            if self.quantized and self.quantize_device is not None and key in state_dict:
+                # IN, critical: a plain float checkpoint weight. Quantized here, one layer at a time,
+                # so the full-precision model never exists on the GPU. Same steps (and result) as
+                # Gfx906Int4TranscodeCLIP's plain path: fp32 on the GPU, rotation fold, quantize.
+                w = state_dict.pop(key)
+                if w.dtype not in (torch.float32, torch.float16, torch.bfloat16) or tuple(w.shape) != (self.out_features, self.in_features):
+                    raise RuntimeError(f"{key}: expected a float [{self.out_features}, {self.in_features}] weight, "
+                                       f"got {w.dtype} {tuple(w.shape)}")
+                w_float = w.to(self.quantize_device).float()
+                if self.rotation_group:
+                    R = get_group_rotation(self.in_features, self.rotation_group, w_float.device)
+                    w_float = apply_group_rotation(w_float, R, self.rotation_group)
+                packed, scale = quantize_pack_int4(w_float, BLOCK)
+                state_dict[prefix + "weight_q4"] = packed.to(w.device)
+                state_dict[prefix + "weight_scale"] = scale.to(w.device)
+                type(self).quantized_on_load += 1
+            super()._load_from_state_dict(state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
+
         def forward(self, x):
             if not self.quantized:
                 bias = self.bias.to(x.device, x.dtype) if self.bias is not None else None
@@ -231,3 +256,19 @@ class Gfx906Int4Ops(comfy.ops.disable_weight_init):
             weight_scale = self.weight_scale.to(x.device)
             bias = self.bias.to(x.device, x.dtype) if self.bias is not None else None
             return int4_linear(x, weight_q4, weight_scale, bias, self.rotation_group)
+
+
+def make_load_quantizing_ops(base_ops, quantize_device, rotate):
+    """custom_operations for loading a plain float checkpoint straight into int4: base_ops for
+    every other layer (text encoders: comfy.ops.manual_cast, as ComfyUI's own CLIP loader),
+    Linear quantized per layer on quantize_device while the state dict loads. rotate: the same
+    per-layer Hadamard choice as Gfx906Int4TranscodeCLIP's activation_rotation."""
+    class Linear(Gfx906Int4Ops.Linear):
+        quantized_on_load = 0
+
+        def __init__(self, in_features, out_features, bias=True, device=None, dtype=None):
+            group = (choose_rotation_group(in_features) or 0) if rotate else 0
+            super().__init__(in_features, out_features, bias, device, dtype, rotation_group=group)
+
+    Linear.quantize_device = torch.device(quantize_device)
+    return type("Gfx906Int4LoadOps", (base_ops,), {"Linear": Linear})

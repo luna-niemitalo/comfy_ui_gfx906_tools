@@ -23,8 +23,9 @@ import comfy.model_management
 import comfy.model_patcher
 import comfy.storage
 import comfy.ops
+import nodes as comfy_nodes
 
-from .ops import quantize_pack_int4, repack_q4_0_native, choose_rotation_group, apply_group_rotation, get_group_rotation, Gfx906Int4Ops
+from .ops import quantize_pack_int4, repack_q4_0_native, choose_rotation_group, apply_group_rotation, get_group_rotation, Gfx906Int4Ops, make_load_quantizing_ops
 from .row_split import Gfx906RowSplitKrea2
 from .attention import Gfx906FusedAttention
 from .vae import Gfx906Int8VAE
@@ -353,6 +354,50 @@ class Gfx906Int4TranscodeCLIP:
         return (clip,)
 
 
+class Gfx906Int4CLIPLoader:
+    """Loads a plain float (fp16/bf16/fp32 safetensors) text encoder straight into gfx906 native
+    int4 Linears: each weight is quantized on the target GPU while the state dict loads, so the
+    full-precision encoder never sits in VRAM (CLIPLoader + Gfx906Int4TranscodeCLIP loaded
+    Qwen3-VL-4B at 8.4 GB before converting to ~3.5 GB). Same result as that pair: identical
+    quantization steps. Other layers use comfy.ops.manual_cast, as ComfyUI's own CLIPLoader.
+    GGUF / pre-quantized encoders: use a loader for that format + the transcode node."""
+
+    @classmethod
+    def INPUT_TYPES(s):
+        devices = [d for d in _device_list() if d != "cpu"]
+        return {
+            "required": {
+                "clip_name": (folder_paths.get_filename_list("text_encoders"),),
+                "type": (comfy_nodes.CLIPLoader.INPUT_TYPES()["required"]["type"][0], {"default": "krea2"}),
+                "device": (devices, {"default": _default_device(devices)}),
+                "activation_rotation": ("BOOLEAN", {"default": True, "tooltip": "Hadamard rotation of weight+activation before quantizing (same as the transcode node's option)."}),
+            }
+        }
+
+    RETURN_TYPES = ("CLIP",)
+    FUNCTION = "load_clip"
+    CATEGORY = "gfx906"
+    TITLE = "Gfx906 Int4 CLIP Loader (native kernel)"
+
+    def load_clip(self, clip_name, type, device, activation_rotation):
+        clip_path = folder_paths.get_full_path_or_raise("text_encoders", clip_name)
+        if clip_path.endswith(".gguf"):
+            raise ValueError(f"Gfx906 Int4 CLIP Loader: expected a safetensors text encoder, got {clip_name}; "
+                             "load .gguf with the GGUF CLIP loader + Gfx906 Int4 Transcode CLIP")
+        torch_device = torch.device(device)
+        ops = make_load_quantizing_ops(comfy.ops.manual_cast, torch_device, activation_rotation)
+        clip = comfy.sd.load_clip(ckpt_paths=[clip_path], embedding_directory=folder_paths.get_folder_paths("embeddings"),
+                                  clip_type=getattr(comfy.sd.CLIPType, type.upper()),
+                                  model_options={"custom_operations": ops, "load_device": torch_device})
+        eligible = sum(isinstance(m, ops.Linear) and m.quantized for m in clip.cond_stage_model.modules())
+        if ops.Linear.quantized_on_load != eligible:
+            raise RuntimeError(f"Gfx906 Int4 CLIP Loader: expected all {eligible} int4 Linears quantized from float "
+                               f"weights, got {ops.Linear.quantized_on_load} (pre-quantized or missing weights?)")
+        torch.cuda.empty_cache()
+        print(f"[Gfx906Int4CLIPLoader] quantized={eligible} rotation={activation_rotation} device={device}")
+        return (clip,)
+
+
 def _device_list():
     devices = ["cpu"] + [f"cuda:{i}" for i in range(torch.cuda.device_count())]
     return devices
@@ -559,6 +604,7 @@ NODE_CLASS_MAPPINGS = {
     "Gfx906Int4UnetLoader": Gfx906Int4UnetLoader,
     "Gfx906Int4Transcode": Gfx906Int4Transcode,
     "Gfx906Int4TranscodeCLIP": Gfx906Int4TranscodeCLIP,
+    "Gfx906Int4CLIPLoader": Gfx906Int4CLIPLoader,
     "Gfx906RowSplitKrea2": Gfx906RowSplitKrea2,
     "Gfx906FusedAttention": Gfx906FusedAttention,
     "Gfx906Int8VAE": Gfx906Int8VAE,
@@ -569,6 +615,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "Gfx906Int4TranscodeCLIP": "Gfx906 Int4 Transcode CLIP (native kernel, any source)",
     "Gfx906Int4Patch": "Gfx906 Int4 Quantize (test)",
     "Gfx906Int4UnetLoader": "Gfx906 Int4 UNet Loader (native kernel)",
+    "Gfx906Int4CLIPLoader": "Gfx906 Int4 CLIP Loader (native kernel)",
     "Gfx906RowSplitKrea2": "Gfx906 Split Krea2 (2 GPUs)",
     "Gfx906FusedAttention": "Gfx906 Fused Attention",
     "Gfx906Int8VAE": "Gfx906 Int8 VAE",
