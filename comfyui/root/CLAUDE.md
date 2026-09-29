@@ -240,7 +240,17 @@ Run Krea2 (and other DiT image models) fast on 2x Radeon VII (gfx906) via a nati
         Noise scaling left to comfy (CFGGuider.sample at sigmas [s, 0]) -> model-type
         agnostic. develop/experiments/2026-09-29/node_test.py: 3840x2160, 2 GPUs,
         16 + 104 s, 32.7 dB vs grow_test (direct x0 vs 1-step er_sde). Not yet tried by
-        Luna in the UI. Later (int4 extension): shrink the VAE's ~5 GB for the VAE steps. Later: int4 treatment (bf16 is fp32 math
+        Luna in the UI. Later (int4 extension): shrink the VAE's ~5 GB for the VAE steps.
+     h. Scaling study (`scale_test.py`, per-step report + `out/progressive/scale/`):
+        1280x720 -> 7680x4320 in 10 steps (~1.2x each, sigma 0.5 -> 0.07), 2 GPUs, growth
+        ~510 s (last step 167 s). Drift vs composition flat 24.1-24.6 dB over 1.3-33 MP;
+        change per step 24 -> 38 dB; noise 1.7 -> 0.4; detail at 720p scale 11.9 -> ~10.5.
+        Luna: "genuinely phenomenal", noise drop is fine (texture + fine detail kept).
+        Luna's next ideas (proposed order, awaiting go): A/B additive "+256 px per side"
+        steps (sigma tied to size, not step index) vs multiplicative at 4K; oversample
+        (grow past target, Lanczos down = supersampling); Cycles-style open-ended mode
+        (grow until a Stop button -- needs server route + JS, ComfyUI Interrupt drops
+        outputs -- then settle at the final size with falling sigma). Later: int4 treatment (bf16 is fp32 math
         on gfx906). Earlier notes: PiD node registered via nodes.load_custom_node (the
         experiments' whitelist excludes it): compose 1024x576 -> PiDDecode qwenimage 2kto4k -> 4096x2304
         vs VAE + Lanczos 4x. PiD is per latent space (VAE), not per model. Files moved by
