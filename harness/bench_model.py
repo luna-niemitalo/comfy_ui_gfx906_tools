@@ -14,6 +14,7 @@ Usage:
 """
 import argparse
 import json
+import logging
 import os
 import sys
 import time
@@ -31,6 +32,7 @@ parser.add_argument("--iters", type=int, default=2)
 parser.add_argument("--breakdown", action="store_true", help="split one forward into int4 linear / attention / other (single GPU only)")
 parser.add_argument("--split-device", default=None, help="apply Gfx906RowSplitKrea2 with this second GPU")
 parser.add_argument("--check", action="store_true", help="max relative error of the (possibly split) forward vs a plain one")
+parser.add_argument("--ballast-gb", type=float, default=0.0, help="hold this much VRAM on --split-device (stands in for a text encoder + VAE parked there)")
 cli = parser.parse_args()
 
 import comfy.cli_args  # noqa: E402  (must precede bootstrap: attention is picked at comfy import)
@@ -127,6 +129,7 @@ def breakdown(dm, forward):
 
 
 def main():
+    logging.getLogger().setLevel(logging.INFO)  # node plan lines ("[Gfx906 Split] ...") log at INFO
     bootstrap.ensure_custom_nodes()
     device = torch.device(cli.device)
     with torch.inference_mode():
@@ -143,6 +146,8 @@ def main():
         # transformer_options; do the same so wrapper-based nodes take effect.
         if cli.split_device:
             (model,) = pipeline.call_node("Gfx906RowSplitKrea2", model=model, device=cli.split_device, min_image_tokens=0)
+            other_gpu = f"cuda:{1 - device.index}" if cli.split_device == "auto" else cli.split_device
+            ballast = torch.empty(int(cli.ballast_gb * 2**30), dtype=torch.uint8, device=other_gpu)  # noqa: F841 (held for the run)
         options = {"wrappers": model.wrappers}
 
         for res in cli.res.split(","):
@@ -153,9 +158,13 @@ def main():
                 return dm(*inputs, transformer_options=options)
 
             torch.cuda.reset_peak_memory_stats(device)
+            if cli.split_device:
+                torch.cuda.reset_peak_memory_stats(other_gpu)
             ms = forward_ms(forward, cli.iters)
             record = {"res": res, "img_tokens": (w // 16) * (h // 16), "step_ms": round(ms, 1),
                       "peak_gb": round(torch.cuda.max_memory_allocated(device) / 2**30, 2)}
+            if cli.split_device:
+                record["split_peak_gb"] = round(torch.cuda.max_memory_allocated(other_gpu) / 2**30, 2)
             if cli.breakdown:
                 record["breakdown_ms"] = breakdown(dm, forward)
             if cli.check:
