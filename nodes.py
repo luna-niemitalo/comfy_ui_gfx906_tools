@@ -26,6 +26,7 @@ import comfy.ops
 
 from .ops import quantize_pack_int4, repack_q4_0_native, choose_rotation_group, apply_group_rotation, get_group_rotation, Gfx906Int4Ops
 from .row_split import Gfx906RowSplitKrea2
+from .attention import Gfx906FusedAttention
 
 try:
     from comfy_kitchen.tensor.convrot_w4a4 import dequantize_convrot_w4a4_weight
@@ -558,6 +559,7 @@ NODE_CLASS_MAPPINGS = {
     "Gfx906Int4Transcode": Gfx906Int4Transcode,
     "Gfx906Int4TranscodeCLIP": Gfx906Int4TranscodeCLIP,
     "Gfx906RowSplitKrea2": Gfx906RowSplitKrea2,
+    "Gfx906FusedAttention": Gfx906FusedAttention,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -566,4 +568,5 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "Gfx906Int4Patch": "Gfx906 Int4 Quantize (test)",
     "Gfx906Int4UnetLoader": "Gfx906 Int4 UNet Loader (native kernel)",
     "Gfx906RowSplitKrea2": "Gfx906 Split Krea2 (2 GPUs)",
+    "Gfx906FusedAttention": "Gfx906 Fused Attention",
 }

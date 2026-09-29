@@ -69,8 +69,8 @@ def _prepare_v(v, mode):
 
 
 def fused_attention(q, k, v, qk="int8", pv="u8", skip_below=0.0):
-    """q [B, H, L, 128] post-RoPE, k/v [B, KVH, L, 128] (not GQA-expanded).
-    Returns [B, L, H * 128] fp16."""
+    """q [B, H, Lq, 128] post-RoPE, k/v [B, KVH, Lk, 128] (not GQA-expanded;
+    Lq != Lk for the two-GPU row split). Returns [B, Lq, H * 128] fp16."""
     if q.shape[-1] != HEAD_DIM:
         raise ValueError(f"head dim must be {HEAD_DIM}, got {q.shape[-1]}")
     if qk not in QK_MODES or pv not in PV_MODES:
@@ -78,3 +78,57 @@ def fused_attention(q, k, v, qk="int8", pv="u8", skip_below=0.0):
     qb, qs, kb, ks = _prepare_qk(q, k, qk)
     vt, vs = _prepare_v(v, pv)
     return ops._get_ext().attention(qb, qs, kb, ks, vt, vs, QK_MODES[qk], PV_MODES[pv], float(skip_below))
+
+
+def _gqa_repeat(diffusion_model):
+    """Query heads per KV head. Krea2 repeat_interleaves K/V up to the query
+    head count before calling attention; the override undoes that with a
+    stride so the kernel reads each KV head once."""
+    attn = next((m for m in diffusion_model.modules() if hasattr(m, "kvheads") and hasattr(m, "heads")), None)
+    return attn.heads // attn.kvheads if attn is not None else 1
+
+
+def _make_override(qk, pv, skip_below, gqa_repeat):
+    def override(func, q, k, v, heads, mask=None, attn_precision=None, skip_reshape=False,
+                 skip_output_reshape=False, **kwargs):
+        # The kernel's contract: [B, H, L, 128] inputs, no mask, no custom
+        # scale, [B, L, H*128] output. Anything else (e.g. masked text-encoder
+        # attention) goes to ComfyUI's own backend.
+        handled = (mask is None and skip_reshape and not skip_output_reshape and "scale" not in kwargs
+                   and q.dim() == 4 and q.shape[1] == heads and q.shape[-1] == HEAD_DIM)
+        if not handled:
+            return func(q, k, v, heads, mask=mask, attn_precision=attn_precision, skip_reshape=skip_reshape,
+                        skip_output_reshape=skip_output_reshape, **kwargs)
+        if gqa_repeat > 1 and k.shape[1] == q.shape[1]:
+            k, v = k[:, ::gqa_repeat], v[:, ::gqa_repeat]
+        return fused_attention(q, k, v, qk, pv, skip_below).to(q.dtype)
+    return override
+
+
+class Gfx906FusedAttention:
+    """MODEL -> MODEL. Routes the model's attention through the fused gfx906
+    kernel (head dim 128, unmasked); other attention calls fall through to
+    ComfyUI's backend. Accuracy per mode: CLAUDE.md "Attention exploration"
+    (renders indistinguishable at int4/u8 in Luna's check)."""
+
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "required": {
+                "model": ("MODEL",),
+                "qk": (list(QK_MODES), {"default": "int4", "tooltip": "Q.K precision. int4 (Hadamard-rotated) is fastest; fp16 is the exact reference."}),
+                "pv": (list(PV_MODES), {"default": "u8", "tooltip": "softmax.V precision. u8 uses a per-64-key-tile scale."}),
+                "skip_below": ("FLOAT", {"default": 1e-4, "min": 0.0, "max": 0.1, "step": 1e-5, "tooltip": "Skip a key tile's P.V when its largest attention weight is below this fraction of every row's peak (0 = never)."}),
+            }
+        }
+
+    RETURN_TYPES = ("MODEL",)
+    FUNCTION = "patch"
+    CATEGORY = "gfx906"
+    TITLE = "Gfx906 Fused Attention"
+
+    def patch(self, model, qk, pv, skip_below):
+        gqa_repeat = _gqa_repeat(model.model.diffusion_model)
+        model = model.clone()
+        model.model_options["transformer_options"]["optimized_attention_override"] = _make_override(qk, pv, skip_below, gqa_repeat)
+        return (model,)

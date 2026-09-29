@@ -88,9 +88,10 @@ __device__ __forceinline__ float row_sum16(float v) {
     return v + dpp<DPP_ROW_ROR8>(v);
 }
 
-// Q [B, H, L, QROW] bytes, q_scale [B, H, L] (int modes), K [B, KVH, L, QROW],
-// k_scale [B, KVH, L], Vt [B, KVH, n_tiles, 128, 64] (fp16 or u8+128),
-// v_scale [B, KVH, n_tiles, 128] (u8 mode). out [B, L, H, 128] fp16.
+// Q [B, H, Lq, QROW] bytes, q_scale [B, H, Lq] (int modes), K [B, KVH, Lk, QROW],
+// k_scale [B, KVH, Lk], Vt [B, KVH, n_tiles, 128, 64] (fp16 or u8+128; tiles of
+// Lk), v_scale [B, KVH, n_tiles, 128] (u8 mode). out [B, Lq, H, 128] fp16.
+// Lq != Lk when queries are a subset (the two-GPU row split).
 // A key tile whose largest P (relative to each row's running max) is below
 // skip_below for every row of the workgroup contributes to the row sums but
 // its P.V is skipped (0 disables).
@@ -99,7 +100,7 @@ __global__ void __launch_bounds__(QKRow<QK>::THREADS) attention_kernel(
     const uint8_t* __restrict__ Q, const float* __restrict__ q_scale,
     const uint8_t* __restrict__ K, const float* __restrict__ k_scale,
     const uint8_t* __restrict__ Vt, const float* __restrict__ v_scale,
-    _Float16* __restrict__ out, int H, int KVH, int L, int n_tiles, float skip_below) {
+    _Float16* __restrict__ out, int H, int KVH, int Lq, int Lk, int n_tiles, float skip_below) {
     constexpr int NT = QKRow<QK>::THREADS;
     constexpr int TY = NT / 16;
     constexpr int BQ = RPT * TY;
@@ -122,22 +123,22 @@ __global__ void __launch_bounds__(QKRow<QK>::THREADS) attention_kernel(
     const int kvh = h / (H / KVH);
     const int tid = threadIdx.x, tx = tid % 16, ty = tid / 16;
 
-    const uint8_t* Qg = Q + (size_t)(b * H + h) * L * RB;
-    const uint8_t* Kg = K + (size_t)(b * KVH + kvh) * L * RB;
+    const uint8_t* Qg = Q + (size_t)(b * H + h) * Lq * RB;
+    const uint8_t* Kg = K + (size_t)(b * KVH + kvh) * Lk * RB;
     const uint8_t* Vg = Vt + (size_t)(b * KVH + kvh) * n_tiles * ATT_D * VROW;
-    const float* ksg = k_scale + (size_t)(b * KVH + kvh) * L;
+    const float* ksg = k_scale + (size_t)(b * KVH + kvh) * Lk;
     const float* vsg = v_scale + (size_t)(b * KVH + kvh) * n_tiles * ATT_D;
 
     for (int i = tid; i < BQ * RB / 16; i += NT) {
         int r = i / (RB / 16), c = i % (RB / 16);
-        uint4 val = q0 + r < L ? ((const uint4*)(Qg + (size_t)(q0 + r) * RB))[c] : make_uint4(0, 0, 0, 0);
+        uint4 val = q0 + r < Lq ? ((const uint4*)(Qg + (size_t)(q0 + r) * RB))[c] : make_uint4(0, 0, 0, 0);
         *(uint4*)(Qs + r * RS + c * 16) = val;
     }
     float qs[RPT];
 #pragma unroll
     for (int i = 0; i < RPT; i++) {
         int r = q0 + ty + TY * i;
-        qs[i] = (QK != QK_F16 && r < L) ? q_scale[(size_t)(b * H + h) * L + r] : 1.0f;
+        qs[i] = (QK != QK_F16 && r < Lq) ? q_scale[(size_t)(b * H + h) * Lq + r] : 1.0f;
     }
 
     float o[RPT][DPT], m[RPT], l_part[RPT];
@@ -169,10 +170,10 @@ __global__ void __launch_bounds__(QKRow<QK>::THREADS) attention_kernel(
 #pragma unroll
         for (int n = 0; n < K_PER; n++) {
             const int i = min(tid + n * NT, K_CHUNKS - 1), r = i / (RB / 16), c = i % (RB / 16);
-            const uint4 val = ((const uint4*)(Kg + (size_t)min(k0 + r, L - 1) * RB))[c];
-            k_pre[n] = k0 + r < L ? val : make_uint4(0, 0, 0, 0);
+            const uint4 val = ((const uint4*)(Kg + (size_t)min(k0 + r, Lk - 1) * RB))[c];
+            k_pre[n] = k0 + r < Lk ? val : make_uint4(0, 0, 0, 0);
         }
-        if (QK != QK_F16 && tid < BKV) ks_pre = k0 + tid < L ? ksg[k0 + tid] : 0.0f;
+        if (QK != QK_F16 && tid < BKV) ks_pre = k0 + tid < Lk ? ksg[k0 + tid] : 0.0f;
     };
     auto load_v = [&](int t) {
         const uint8_t* Vtile = Vg + (size_t)t * ATT_D * VROW;
@@ -239,7 +240,7 @@ __global__ void __launch_bounds__(QKRow<QK>::THREADS) attention_kernel(
             for (int j = 0; j < KPT; j++) {
                 int key = tx + 16 * j;
                 s[j] = QK == QK_F16 ? facc[i][j] : (float)iacc[i][j] * qs[i] * Ks_scale[key];
-                if (k0 + key >= L) s[j] = NO_SCORE;
+                if (k0 + key >= Lk) s[j] = NO_SCORE;
                 tmax = fmaxf(tmax, s[j]);
             }
             tmax = row_max16(tmax);
@@ -341,8 +342,8 @@ __global__ void __launch_bounds__(QKRow<QK>::THREADS) attention_kernel(
     for (int i = 0; i < RPT; i++) {
         const float l = row_sum16(l_part[i]);
         const int r = q0 + ty + TY * i;
-        if (r >= L) continue;
-        _Float16* dst = out + ((size_t)b * L + r) * H * ATT_D + (size_t)h * ATT_D;
+        if (r >= Lq) continue;
+        _Float16* dst = out + ((size_t)b * Lq + r) * H * ATT_D + (size_t)h * ATT_D;
 #pragma unroll
         for (int j = 0; j < DPT; j++) dst[tx + 16 * j] = (_Float16)(o[i][j] / l);
     }
@@ -350,19 +351,21 @@ __global__ void __launch_bounds__(QKRow<QK>::THREADS) attention_kernel(
 
 template <int QK, int PV>
 static void attention_launch(const uint8_t* Q, const float* qs, const uint8_t* K, const float* ks, const uint8_t* Vt,
-                             const float* vs, void* out, int B, int H, int KVH, int L, float skip_below, hipStream_t stream) {
+                             const float* vs, void* out, int B, int H, int KVH, int Lq, int Lk, float skip_below,
+                             hipStream_t stream) {
     constexpr int NT = QKRow<QK>::THREADS;
     constexpr int BQ = RPT * NT / 16;
-    const int n_tiles = (L + BKV - 1) / BKV;
-    dim3 grid((L + BQ - 1) / BQ, H, B);
-    attention_kernel<QK, PV><<<grid, NT, 0, stream>>>(Q, qs, K, ks, Vt, vs, (_Float16*)out, H, KVH, L, n_tiles, skip_below);
+    const int n_tiles = (Lk + BKV - 1) / BKV;
+    dim3 grid((Lq + BQ - 1) / BQ, H, B);
+    attention_kernel<QK, PV><<<grid, NT, 0, stream>>>(Q, qs, K, ks, Vt, vs, (_Float16*)out, H, KVH, Lq, Lk, n_tiles,
+                                                      skip_below);
 }
 
 void attention_dispatch(int qk_mode, int pv_mode, const uint8_t* Q, const float* qs, const uint8_t* K, const float* ks,
-                        const uint8_t* Vt, const float* vs, void* out, int B, int H, int KVH, int L, float skip_below,
-                        hipStream_t stream) {
+                        const uint8_t* Vt, const float* vs, void* out, int B, int H, int KVH, int Lq, int Lk,
+                        float skip_below, hipStream_t stream) {
 #define ATT_CASE(QKM, PVM) \
-    if (qk_mode == QKM && pv_mode == PVM) return attention_launch<QKM, PVM>(Q, qs, K, ks, Vt, vs, out, B, H, KVH, L, skip_below, stream);
+    if (qk_mode == QKM && pv_mode == PVM) return attention_launch<QKM, PVM>(Q, qs, K, ks, Vt, vs, out, B, H, KVH, Lq, Lk, skip_below, stream);
     ATT_CASE(QK_F16, PV_F16) ATT_CASE(QK_F16, PV_U8)
     ATT_CASE(QK_I8, PV_F16) ATT_CASE(QK_I8, PV_U8)
     ATT_CASE(QK_I4, PV_F16) ATT_CASE(QK_I4, PV_U8)
