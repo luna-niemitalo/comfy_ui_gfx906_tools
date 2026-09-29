@@ -128,8 +128,17 @@ Run Krea2 (and other DiT image models) fast on 2x Radeon VII (gfx906) via a nati
      a. Transfer test: `record_missed.py` records per-head missed mass (pooled mask,
         tau 0.995) for every call of 4 runs at 2560x1440 (landscape seed 0, portrait,
         city, landscape seed 1) -> `missed_<run>.pt`; `analyze_missed.py [bound]` says
-        whether step-0 verdicts of one run hold on other runs/steps. landscape_s0 and
-        portrait_s0 recorded, city + seed 1 were running.
+        whether step-0 verdicts of one run hold on other runs/steps. DONE, results:
+        verdicts drift over STEPS more than across prompts. Current design (step 0 of the
+        same run) leaks: 3-9% of allowed head-steps exceed 2%, worst 40-100%. Worst over
+        all steps of 3 other runs (leave-one-out): 899-970/1344 heads allowed,
+        violations 0.4-2.8%, mean missed 0.6-0.7%, one 100% outlier (landscape step 1,
+        block 26 head 19). Block 0 heads 0-3, 16-19, 22 miss ~87-100% in every run.
+        => persistent worst-seen cache is SAFER than the current per-run calibration.
+        Proposed: learn over the first 3 runs per key (measure all layers every step,
+        ~2.2 s/step at 2560x1440, output unchanged), then sparse with no calibration;
+        ~1 s/step gain (~5%) at 2560x1440, break-even ~7 runs. Waiting on Luna: build
+        now or after VAE/preview work.
      b. If verdicts transfer: persistent cache. Design agreed in chat: JSON in ComfyUI's
         user dir (`folder_paths.get_user_directory()/gfx906_int4/attention_calibration.json`,
         survives restarts, comfy cache wipes, browser); key = model fingerprint (hash of
@@ -154,7 +163,27 @@ Run Krea2 (and other DiT image models) fast on 2x Radeon VII (gfx906) via a nati
   3. **VAE speed + previews (Luna's proposal, investigating)**: 0 time decode vs sampling
      at 2560x1440/4K; 3 TAESD/live previews broken (latent format / preview method /
      MultiGPU patch?); 1 collapse causal 3-D convs to 2-D when T=1; 2 auto fp16/fp32 VAE
-     precision with a check; 4 read `custom_nodes/PiD`. Findings go below as they land.
+     precision with a check; 4 read `custom_nodes/PiD`. Findings:
+     - Previews: nothing broken -- `run.nu` had no `--preview-method` (server default
+       none) and the frontend settings have no preview entry. Added
+       `--preview-method=taesd` to run.nu (Luna approved; uncommitted until checked).
+       Krea2 latent format = `Wan21` (16 ch, 5-D), TAE `lighttaew2_1`; downloaded to
+       scratchpad (45,274,004 B, sha256 8666e769...1a19) -- Luna moves it to
+       /media/luna/models/VAE-approx/ herself (outside write scope). Without it,
+       latent2rgb fallback.
+     - VAE decode (tiled 512/64, fp32, conv3d as is) at 1024x576: 5.51 s = ~2 sampling
+       steps there. `vae_bench.py` (fp32/fp16 x conv3d/conv2d x 1024x576/2560x1440/4K)
+       fixed (compare on CPU), to rerun. CausalConv3d already slices the kernel for T=1
+       (`autopad="causal_zero"`) but MIOpen still runs it as 3-D.
+     - PiD: NVIDIA PixelDiT pixel-space decoder/upscaler, native in comfy
+       (`comfy/ldm/pixeldit`); `qwenimage` backbone (16 ch / 8x = Krea2's latent space)
+       `2kto4k`: 1024-class latent -> 4x pixels (1024x576 -> 4096x2304) in ~4 steps.
+       Needs `pid_qwenimage_1024_to_4096_4step_bf16.safetensors` + Gemma TE (downloads,
+       Luna's call; files go to /media/luna/models by her) + transformers>=5 etc. via
+       flake. bf16-only upstream; gfx906 needs fp16 test. Could replace both the 4K
+       VAE decode and part of the progressive-upscale idea.
+     - Luna: 2 GPUs -- the split node already splits batch>=2 across both.
+     - progressive.py: er_sde needs `denoise.inner_model` (fixed); rerun pending.
 - **Next step**: finish 1a/2 runs, analyze; VAE items in parallel (CPU/code reading);
   later prep kernel, scale-math.
 - **Hazards**:
