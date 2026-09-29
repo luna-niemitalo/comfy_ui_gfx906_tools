@@ -23,6 +23,7 @@ def _get_ext():
             sources=[
                 os.path.join(this_dir, "csrc", "binding.cpp"),
                 os.path.join(this_dir, "csrc", "int4_gemm_scaled.hip"),
+                os.path.join(this_dir, "csrc", "attention.hip"),
             ],
             extra_cuda_cflags=["--offload-arch=gfx906", "-O3"],
             verbose=False,
