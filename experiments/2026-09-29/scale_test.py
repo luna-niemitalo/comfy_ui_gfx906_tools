@@ -32,11 +32,20 @@ OUT = os.path.join(prog.OUT, "scale")
 
 
 def parse_run(spec):
-    mode, size, n = spec.split(":")
+    """mode:WxH:n[@WxH][=WxH]
+    @WxH  Lanczos-downsample the final result (oversampling, the node's path).
+    =WxH  fixed OUTPUT size (Luna's constant-output mode): every step's image is resized to
+          it before saving and measuring -- upscaled while the internal size is smaller,
+          supersampled once larger."""
+    grow_spec, _, out = spec.partition("=")
+    grow_spec, _, down = grow_spec.partition("@")
+    mode, size, n = grow_spec.split(":")
     if mode not in ("geometric", "linear"):
         sys.exit(f"run spec {spec!r}: mode must be geometric|linear, got {mode!r}")
-    w, h = (int(v) for v in size.split("x"))
-    return {"label": spec.replace(":", "_"), "mode": mode, "target": (w, h), "n": int(n)}
+    as_size = lambda s: tuple(int(v) for v in s.split("x")) if s else None  # noqa: E731
+    label = spec.replace(":", "_").replace("@", "_to_").replace("=", "_out_")
+    return {"label": label, "mode": mode, "target": as_size(size), "n": int(n), "down": as_size(down),
+            "out": as_size(out)}
 
 
 RUNS = [parse_run(s) for s in (sys.argv[1:] or ["geometric:7680x4320:10"])]
@@ -92,12 +101,15 @@ with torch.inference_mode():
             step_s = time.perf_counter() - state["t"]
             state["total"] += step_s
             img = decode(vae, x0)
+            if run["out"]:
+                img = np.asarray(Image.fromarray(img).resize(run["out"], Image.LANCZOS))
             Image.fromarray(img).save(os.path.join(run_dir, f"step_{k + 1}_{size[0]}x{size[1]}.png"))
             small = shrink(img, prog.NATIVE)
             row = {"run": run["label"], "step": k + 1, "size": f"{size[0]}x{size[1]}",
                    "mp": round(size[0] * size[1] / 1e6, 2), "sigma": round(sigma, 3), "step_s": round(step_s, 1),
                    "total_s": round(state["total"], 1), "drift_db": round(psnr(small, comp), 2),
                    "change_db": round(psnr(shrink(img, state["prev"].shape[1::-1]), state["prev"]), 2),
+                   "measured_at": f"{img.shape[1]}x{img.shape[0]}",
                    "noise": round(noise_sigma(img), 2), "noise_720": round(noise_sigma(small), 2),
                    "detail": round(prog.detail(img), 2), "detail_720": round(prog.detail(small), 2)}
             run["rows"].append(row)
@@ -105,10 +117,15 @@ with torch.inference_mode():
             state["prev"] = img
             state["t"] = time.perf_counter()
 
-        growth.grow(model, detail_positive, positive, vae, composition["samples"], run["target"], run["mode"],
-                    run["n"], run["n"], sigma_start=0.5, size_shape=1.0, anchor=1.0, anchor_shape=2.0, cfg=1.0,
-                    seed=prog.SEED + 1, tile_px=1024, overlap_px=256, tile_batch=4, upscale_method="lanczos",
-                    upscale_model=None, on_step=report)
+        final, schedule = growth.grow(
+            model, detail_positive, positive, vae, composition["samples"], run["target"], run["mode"], run["n"],
+            run["n"], sigma_start=0.5, size_shape=1.0, anchor=1.0, anchor_shape=2.0, cfg=1.0, seed=prog.SEED + 1,
+            tile_px=1024, overlap_px=256, tile_batch=4, upscale_method="lanczos", upscale_model=None,
+            on_step=report)
+        if run["down"]:
+            # the node's oversample path: pixel-space Lanczos down to the output size
+            report(len(schedule["sizes"]), run["down"], 0.0,
+                   growth.pixel_upscale(vae, final, run["down"], "lanczos", None))
 
 import matplotlib  # noqa: E402
 matplotlib.use("Agg")
