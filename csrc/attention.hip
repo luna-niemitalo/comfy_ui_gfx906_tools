@@ -65,15 +65,27 @@ template <> __device__ __forceinline__ void qk_dot<QK_I4>(uint4 a, uint4 b, floa
     iacc = __builtin_amdgcn_sdot8((int)a.w, (int)b.w, iacc, false);
 }
 
+// Reductions over the 16 lanes of a DPP row (= the 16 tx lanes of one ty).
+// DPP moves are plain VALU; __shfl_xor compiles to ds_bpermute, an LDS round
+// trip per step -- 4 chained per reduction, ~40 per thread per tile.
+template <int CTRL> __device__ __forceinline__ float dpp(float v) {
+    return __builtin_bit_cast(float, __builtin_amdgcn_update_dpp(0, __builtin_bit_cast(int, v), CTRL, 0xF, 0xF, false));
+}
+#define DPP_QUAD_XOR1 0xB1  // quad_perm [1, 0, 3, 2]
+#define DPP_QUAD_XOR2 0x4E  // quad_perm [2, 3, 0, 1]
+#define DPP_ROW_ROR4 0x124
+#define DPP_ROW_ROR8 0x128
 __device__ __forceinline__ float row_max16(float v) {
-#pragma unroll
-    for (int off = 8; off > 0; off >>= 1) v = fmaxf(v, __shfl_xor(v, off, 16));
-    return v;
+    v = fmaxf(v, dpp<DPP_QUAD_XOR1>(v));
+    v = fmaxf(v, dpp<DPP_QUAD_XOR2>(v));
+    v = fmaxf(v, dpp<DPP_ROW_ROR4>(v));
+    return fmaxf(v, dpp<DPP_ROW_ROR8>(v));
 }
 __device__ __forceinline__ float row_sum16(float v) {
-#pragma unroll
-    for (int off = 8; off > 0; off >>= 1) v += __shfl_xor(v, off, 16);
-    return v;
+    v += dpp<DPP_QUAD_XOR1>(v);
+    v += dpp<DPP_QUAD_XOR2>(v);
+    v += dpp<DPP_ROW_ROR4>(v);
+    return v + dpp<DPP_ROW_ROR8>(v);
 }
 
 // Q [B, H, L, QROW] bytes, q_scale [B, H, L] (int modes), K [B, KVH, L, QROW],
@@ -137,22 +149,62 @@ __global__ void __launch_bounds__(QKRow<QK>::THREADS) attention_kernel(
         for (int j = 0; j < DPT; j++) o[i][j] = 0.0f;
     }
 
+    // The next tile's K and V are loaded into registers during this tile's P.V
+    // (K issued right after the softmax, V at the start of P.V) and written to
+    // LDS after it: global latency hides behind P.V instead of stalling all
+    // waves at the tile's first barrier (~34 ms of 130 at L=14540 before). The
+    // S-phase operand registers are dead during P.V, so peak VGPRs don't grow.
+    constexpr int K_CHUNKS = BKV * RB / 16;
+    constexpr int V_CHUNKS = ATT_D * VROW / 16;
+    constexpr int K_PER = (K_CHUNKS + NT - 1) / NT;
+    constexpr int V_PER = (V_CHUNKS + NT - 1) / NT;
+    uint4 k_pre[K_PER], v_pre[V_PER];
+#pragma unroll
+    for (int n = 0; n < K_PER; n++) k_pre[n] = make_uint4(0, 0, 0, 0);
+#pragma unroll
+    for (int n = 0; n < V_PER; n++) v_pre[n] = make_uint4(0, 0, 0, 0);
+    float ks_pre = 0.0f, vs_pre = 0.0f;
+    auto load_k = [&](int t) {
+        const int k0 = t * BKV;
+#pragma unroll
+        for (int n = 0; n < K_PER; n++) {
+            const int i = min(tid + n * NT, K_CHUNKS - 1), r = i / (RB / 16), c = i % (RB / 16);
+            const uint4 val = ((const uint4*)(Kg + (size_t)min(k0 + r, L - 1) * RB))[c];
+            k_pre[n] = k0 + r < L ? val : make_uint4(0, 0, 0, 0);
+        }
+        if (QK != QK_F16 && tid < BKV) ks_pre = k0 + tid < L ? ksg[k0 + tid] : 0.0f;
+    };
+    auto load_v = [&](int t) {
+        const uint8_t* Vtile = Vg + (size_t)t * ATT_D * VROW;
+#pragma unroll
+        for (int n = 0; n < V_PER; n++) {
+            const int i = min(tid + n * NT, V_CHUNKS - 1), d = i / (VROW / 16), c = i % (VROW / 16);
+            v_pre[n] = ((const uint4*)(Vtile + (size_t)d * VROW))[c];
+        }
+        if (PV == PV_U8 && tid < ATT_D) vs_pre = vsg[(size_t)t * ATT_D + tid];
+    };
+    auto store_kv = [&]() {
+#pragma unroll
+        for (int n = 0; n < K_PER; n++) {
+            const int i = tid + n * NT, r = i / (RB / 16), c = i % (RB / 16);
+            if (i < K_CHUNKS) *(uint4*)(Ks + r * RS + c * 16) = k_pre[n];
+        }
+#pragma unroll
+        for (int n = 0; n < V_PER; n++) {
+            const int i = tid + n * NT, d = i / (VROW / 16), c = i % (VROW / 16);
+            if (i < V_CHUNKS) *(uint4*)(Vs + d * VRS + c * 16) = v_pre[n];
+        }
+        if (QK != QK_F16 && tid < BKV) Ks_scale[tid] = ks_pre;
+        if (PV == PV_U8 && tid < ATT_D) Vs_scale[tid] = vs_pre;
+    };
+    load_k(0);
+    load_v(0);
+    store_kv();
+
     for (int t = 0; t < n_tiles; t++) {
         const int k0 = t * BKV;
-        __syncthreads();  // everyone is done reading the previous tile's Ks/Vs/Ps
-        for (int i = tid; i < BKV * RB / 16; i += NT) {
-            int r = i / (RB / 16), c = i % (RB / 16);
-            uint4 val = k0 + r < L ? ((const uint4*)(Kg + (size_t)(k0 + r) * RB))[c] : make_uint4(0, 0, 0, 0);
-            *(uint4*)(Ks + r * RS + c * 16) = val;
-        }
-        const uint8_t* Vtile = Vg + (size_t)t * ATT_D * VROW;
-        for (int i = tid; i < ATT_D * VROW / 16; i += NT) {
-            int d = i / (VROW / 16), c = i % (VROW / 16);
-            *(uint4*)(Vs + d * VRS + c * 16) = ((const uint4*)(Vtile + (size_t)d * VROW))[c];
-        }
-        if (QK != QK_F16 && tid < BKV) Ks_scale[tid] = k0 + tid < L ? ksg[k0 + tid] : 0.0f;
-        if (PV == PV_U8 && tid < ATT_D) Vs_scale[tid] = vsg[(size_t)t * ATT_D + tid];
-        __syncthreads();
+        const bool has_next = t + 1 < n_tiles;
+        __syncthreads();  // this tile's K/V (and Q on t = 0) are in LDS
 
         float facc[RPT][KPT];
         int iacc[RPT][KPT];
@@ -220,6 +272,7 @@ __global__ void __launch_bounds__(QKRow<QK>::THREADS) attention_kernel(
             }
             pq_sum[i] = PV == PV_U8 ? row_sum16(qsum) : 0.0f;
         }
+        if (has_next) load_k(t + 1);
         rel_max = fmaxf(rel_max, __shfl_xor(rel_max, 16));
         rel_max = fmaxf(rel_max, __shfl_xor(rel_max, 32));
         rel_max = row_max16(rel_max);
@@ -228,9 +281,11 @@ __global__ void __launch_bounds__(QKRow<QK>::THREADS) attention_kernel(
         float tile_rel = 0.0f;
 #pragma unroll
         for (int w = 0; w < WAVES; w++) tile_rel = fmaxf(tile_rel, wave_rel[w]);
-        if (tile_rel < skip_below) continue;
+        if (has_next) load_v(t + 1);
 
-        if (PV == PV_F16) {
+        if (tile_rel < skip_below) {
+            // skipped: this tile's P.V contribution is negligible
+        } else if (PV == PV_F16) {
 #pragma unroll 1
             for (int c = 0; c < VROW / 16; c++) {
                 uint4 pp[RPT];
@@ -275,6 +330,10 @@ __global__ void __launch_bounds__(QKRow<QK>::THREADS) attention_kernel(
 #pragma unroll
                 for (int j = 0; j < DPT; j++)
                     o[i][j] = fmaf(p_scale[i] * Vs_scale[tx + 16 * j], (float)acc[i][j] - 128.0f * pq_sum[i], o[i][j]);
+        }
+        if (has_next) {
+            __syncthreads();  // every wave is done reading this tile's Ks/Vs/Ps
+            store_kv();
         }
     }
 
