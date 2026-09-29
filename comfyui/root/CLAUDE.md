@@ -107,8 +107,18 @@ Run Krea2 (and other DiT image models) fast on 2x Radeon VII (gfx906) via a nati
   (29-45% skipped), error unchanged at tau 0.995. Open: a cheap, safe mask predictor.
   Testing the "max P / row max >= eps" rule (kernel could record it on dense steps),
   plain and reused (`scratchpad/sparsity_maxrel.py`).
-- **Next step**: pick a predictor + policy (which layers/steps dense), wire into the
-  node, render check with Luna. Then prep kernel, then scale-math.
+- **Block sparsity built** (node repo deba631, `sparse_tau` default 0 = off): pooled
+  prediction + online per-head calibration on the first call per layer of a run (heads
+  dropping > max_missed of exact mass stay dense; catches block 0's outlier heads).
+  2560x1440 render: 28 layers, 33-48/48 heads sparse, ~16% of blocks skipped;
+  attention -10.5%, but calibration costs ~5 s on step 1 -> 8-step run 156.4 vs 156.3 s.
+  Luna: images equivalent. Open: persist calibration across runs (untested whether
+  verdicts hold across prompts).
+- **Splotchiness at 2560x1440 is the model, not the kernel** (Luna saw it, confirmed
+  with `develop/out/attn_trace/`): quad attention at 2560x1440 is as splotchy as fused;
+  at 1024x576 all fused variants match the study renders. Krea2 is trained ~1 MP; for
+  4K, suggest a two-pass hires fix (native-size render, upscale, low-denoise pass).
+- **Next step**: Luna's call on calibration persistence; then prep kernel, then scale-math.
 - **Hazards**:
   - 2026-09-28 hard hang = kernel Oops in kswapd (`__pgalloc_tag_sub`, alloc profiling),
     not GPU. Keep host-RAM churn low: few process launches, whitelist custom nodes.
