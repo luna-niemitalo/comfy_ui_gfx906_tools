@@ -44,9 +44,11 @@ Run Krea2 (and other DiT image models) fast on 2x Radeon VII (gfx906) via a nati
   - **3840x2160 runs** (int4/u8, 32400 image tokens): 1 GPU 66.9 s/step, peak 12.3 GB
     (attention 40.7 s, int4 linears 24.2 s, other 2.8 s); 2 GPU 35.4 s/step, 10.9 GB each.
     Not yet rendered end to end (VAE decode at 4K needs tiling; model untrained at 4K).
-- **Target**: short-sequence fallback in the override (fused is slower at ~660 tokens);
-  adaptive int4/int8/skip PV tiers (Luna required); move prep into a kernel.
-  Then scale-math reduction (64-value blocks / cheaper scale ops; ceiling 55 TOPS).
+  - Fused attention routes sequences under 768 keys back to ComfyUI's backend (prep
+    overhead; see Resume). Skip decisions are per wave.
+- **Target**: block-sparse attention (predicted / reused sparsity map) -- exploring;
+  move prep into a kernel. Then scale-math reduction (64-value blocks / cheaper scale
+  ops; ceiling 55 TOPS).
 - Anything not listed under Current does not exist yet. Do not describe it as working.
 
 ## Boundaries
@@ -85,9 +87,21 @@ Run Krea2 (and other DiT image models) fast on 2x Radeon VII (gfx906) via a nati
 - **Fused attention built** (node repo f9504fd, numbers under Status). Realized 1.5x on
   the kernel vs the ~2.3x ALU estimate (occupancy: 127-128 VGPRs, 2 waves/SIMD).
   Luna's dream goal: 3840x2160 -- memory now fits (see Status).
-- **Next step**: find the fallback crossover (512², 768² with 600 text tokens), add the
-  length threshold to `_make_override`; then adaptive PV tiers (skip / int4 / u8 per
-  64x64 block, compile-time switch; watch VGPRs); prep kernel. Then scale-math.
+- **Fallback crossover** (600 text tokens, quad vs int4/u8 per step): 256² 764 -> 742,
+  384² 1096 -> 1034, 512² 1594 -> 1468 ms; 128² 542 -> 565. `MIN_FUSED_TOKENS = 768`.
+- **Adaptive P.V tiers built, measured, removed** (node repo cead94d has them): correct
+  (kernel matches emulation), but at L=14664 kernel 245.5 ms vs u8 237.3; even all tiles
+  4-bit only 221.5 ms -> P.V dots are ~13% of the kernel. Kept from that work: per-wave
+  skip decisions without the post-softmax barrier (250 -> 238 ms, int4/u8 scratch 92 -> 60 B).
+- **Block sparsity exploration (Luna, in progress)**: SpargeAttn-style predicted block
+  skipping + reuse of the sparsity map across steps. Skipping whole blocks saves Q.K,
+  softmax and P.V (unlike the P.V-only skip). Study script `scratchpad/sparsity_study.py`
+  (block = 128 q rows x 64 keys; oracle top-cdf / pooled-mean prediction / reuse +1, +2
+  steps). 1024x576 block 18: oracle tau 0.99 skips 19-29% at 1.4-1.8% error; pooled
+  prediction ~4x the error at equal sparsity. 2560x1440 captures (steps 0-5, blocks
+  0/9/18/27, 268 MB each) in `scratchpad/attn_capture_hr/`; study running on blocks 18, 27.
+- **Next step**: finish the sparsity study -> if worthwhile, block-sparse kernel (per
+  (head, q-block) tile list). Then prep kernel, then scale-math.
 - **Hazards**:
   - 2026-09-28 hard hang = kernel Oops in kswapd (`__pgalloc_tag_sub`, alloc profiling),
     not GPU. Keep host-RAM churn low: few process launches, whitelist custom nodes.
