@@ -9,8 +9,8 @@ void gemm_dispatch(int dtype, const void* A, const float* As, const void* B, con
 int gemm_tiles(int M, int N);
 int gemm_k_tiles(int n_blocks);
 void attention_dispatch(int qk_mode, int pv_mode, const uint8_t* Q, const float* qs, const uint8_t* K, const float* ks,
-                        const uint8_t* Vt, const float* vs, void* out, int B, int H, int KVH, int Lq, int Lk,
-                        float skip_below, hipStream_t stream);
+                        const uint8_t* Vt, const float* vs, const uint8_t* V4t, void* out, int B, int H, int KVH,
+                        int Lq, int Lk, float skip_below, float int4_below, hipStream_t stream);
 
 // Workgroups resident at once per CU: __launch_bounds__(256) with
 // amdgpu_waves_per_eu(2) -> 2 waves/SIMD x 4 SIMDs / 4 waves per WG.
@@ -99,11 +99,13 @@ torch::Tensor gemm_int4(torch::Tensor A_packed, torch::Tensor A_scale, torch::Te
 // Q [B, H, Lq, qrow] uint8, K [B, KVH, Lk, qrow] uint8 (qrow = 256 fp16 / 128 int8 /
 // 64 int4), q_scale [B, H, Lq] / k_scale [B, KVH, Lk] fp32 (int modes, else empty),
 // Vt [B, KVH, ceil(Lk / 64), 128, 64 * vbytes] uint8, v_scale [B, KVH, ceil(Lk / 64),
-// 128] fp32 (u8 mode, else empty). Returns [B, Lq, H * 128] fp16.
+// 128] fp32 (u8 modes, else empty), V4t [B, KVH, ceil(Lk / 64), 128, 32] uint8 (adaptive
+// mode, else empty). Returns [B, Lq, H * 128] fp16.
 torch::Tensor attention(torch::Tensor Q, torch::Tensor q_scale, torch::Tensor K, torch::Tensor k_scale,
-                        torch::Tensor Vt, torch::Tensor v_scale, int64_t qk_mode, int64_t pv_mode, double skip_below) {
+                        torch::Tensor Vt, torch::Tensor v_scale, torch::Tensor V4t, int64_t qk_mode, int64_t pv_mode,
+                        double skip_below, double int4_below) {
     TORCH_CHECK(qk_mode >= 0 && qk_mode <= 2, "qk_mode must be 0 fp16 / 1 int8 / 2 int4, got ", qk_mode);
-    TORCH_CHECK(pv_mode >= 0 && pv_mode <= 1, "pv_mode must be 0 fp16 / 1 u8, got ", pv_mode);
+    TORCH_CHECK(pv_mode >= 0 && pv_mode <= 2, "pv_mode must be 0 fp16 / 1 u8 / 2 adaptive, got ", pv_mode);
     const int64_t qrow = qk_mode == 0 ? 256 : qk_mode == 1 ? 128 : 64;
     const int64_t vbytes = pv_mode == 0 ? 2 : 1;
     TORCH_CHECK(Q.dim() == 4 && Q.scalar_type() == torch::kUInt8 && Q.size(3) == qrow,
@@ -123,19 +125,25 @@ torch::Tensor attention(torch::Tensor Q, torch::Tensor q_scale, torch::Tensor K,
                     "q_scale/k_scale must have ", B * H * Lq, "/", B * KVH * Lk, " elements, got ", q_scale.numel(), "/",
                     k_scale.numel());
     }
-    if (pv_mode == 1) {
+    if (pv_mode != 0) {
         TORCH_CHECK(v_scale.numel() == B * KVH * n_tiles * 128, "v_scale must have ", B * KVH * n_tiles * 128,
                     " elements, got ", v_scale.numel());
     }
+    if (pv_mode == 2) {
+        TORCH_CHECK(V4t.scalar_type() == torch::kUInt8 && V4t.numel() == B * KVH * n_tiles * 128 * 32,
+                    "V4t must be uint8 [", B, ", ", KVH, ", ", n_tiles, ", 128, 32], got ", V4t.scalar_type(), " ",
+                    V4t.sizes());
+    }
     const c10::cuda::CUDAGuard device_guard(Q.device());
-    auto Qc = Q.contiguous(), Kc = K.contiguous(), Vc = Vt.contiguous();
+    auto Qc = Q.contiguous(), Kc = K.contiguous(), Vc = Vt.contiguous(), V4c = V4t.contiguous();
     auto qs = q_scale.to(torch::kFloat32).contiguous(), ks = k_scale.to(torch::kFloat32).contiguous();
     auto vs = v_scale.to(torch::kFloat32).contiguous();
     auto out = torch::empty({B, Lq, H * 128}, Q.options().dtype(torch::kFloat16));
     attention_dispatch((int)qk_mode, (int)pv_mode, Qc.data_ptr<uint8_t>(), qs.numel() ? qs.data_ptr<float>() : nullptr,
                        Kc.data_ptr<uint8_t>(), ks.numel() ? ks.data_ptr<float>() : nullptr, Vc.data_ptr<uint8_t>(),
-                       vs.numel() ? vs.data_ptr<float>() : nullptr, out.data_ptr(), (int)B, (int)H, (int)KVH, (int)Lq,
-                       (int)Lk, (float)skip_below, at::cuda::getCurrentCUDAStream().stream());
+                       vs.numel() ? vs.data_ptr<float>() : nullptr, V4c.numel() ? V4c.data_ptr<uint8_t>() : nullptr,
+                       out.data_ptr(), (int)B, (int)H, (int)KVH, (int)Lq, (int)Lk, (float)skip_below,
+                       (float)int4_below, at::cuda::getCurrentCUDAStream().stream());
     return out;
 }
 
