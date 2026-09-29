@@ -94,6 +94,10 @@ let args = [
   "--use-quad-cross-attention"
   #"--use-pytorch-cross-attention"
   "--fp16-intermediates" # Keep intermediate tensors in FP16 to save VRAM
+  # Live sampler previews: tiny TAE decoder from models/vae_approx (Krea2 = lighttaew2_1);
+  # falls back to the linear latent2rgb preview if the file is missing.
+  # Without this flag the server default is no previews.
+  "--preview-method=taesd"
   # Memory behavior
   #"--async-offload=8"  # Async weight offloading with 8 streams
                        # Helps hide PCIe latency on large models
