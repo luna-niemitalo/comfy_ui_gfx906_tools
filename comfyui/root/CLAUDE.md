@@ -34,9 +34,19 @@ Run Krea2 (and other DiT image models) fast on 2x Radeon VII (gfx906) via a nati
     without scale math 55; int-only from registers 61. Production (81 VGPR, 3 waves/SIMD)
     is a local optimum: flat->global loads, LDS double-buffer, 8-block stages, c-unroll,
     forced 4 waves (spills) all lost 1-46%. Don't retry those.
-- **Target**: faster attention on gfx906 (int8/int4 QK^T, Sage-style) — exploring.
-  Scale-math reduction (64-value blocks / cheaper scale ops; ceiling 55 TOPS) — after
-  Luna's review of the attention exploration.
+  - `Gfx906FusedAttention` node: fused flash-style attention kernel (`csrc/attention.hip`),
+    native GQA, QK fp16|int8|int4(Hadamard), PV fp16|u8 (per-tile P scale), tile skip.
+    Plugs in via `optimized_attention_override`; composes with the split node (Lq != Lk).
+    Kernel alone at L=14540: quad 402 ms -> int4/u8 268 ms. Per step, 600 text tokens,
+    int4/u8 (vs quad): 128² 565 ms (542, slower: per-call prep) · 1024x576 2.53 s (2.69) /
+    2 GPU 1.63 s · 2560x1440 20.05 s (23.35) / 2 GPU 10.9 s (13.06), peak 9.7 GB (11.5).
+    int8/fp16 is 24.0 s at 2560x1440 -- no gain.
+  - **3840x2160 runs** (int4/u8, 32400 image tokens): 1 GPU 66.9 s/step, peak 12.3 GB
+    (attention 40.7 s, int4 linears 24.2 s, other 2.8 s); 2 GPU 35.4 s/step, 10.9 GB each.
+    Not yet rendered end to end (VAE decode at 4K needs tiling; model untrained at 4K).
+- **Target**: short-sequence fallback in the override (fused is slower at ~660 tokens);
+  adaptive int4/int8/skip PV tiers (Luna required); move prep into a kernel.
+  Then scale-math reduction (64-value blocks / cheaper scale ops; ceiling 55 TOPS).
 - Anything not listed under Current does not exist yet. Do not describe it as working.
 
 ## Boundaries
@@ -72,10 +82,12 @@ Run Krea2 (and other DiT image models) fast on 2x Radeon VII (gfx906) via a nati
   0/27 most local), int4 P+V if < 0.1 (21-50% of blocks), else int8: error 0.47-0.80%
   vs 0.42-0.68% all-int8. Est. +~1.15x over int4-QK/int8-PV. 1024x576 captures only.
   Sheets: `develop/out/attn_quant/attn_sheet*.png` (gitignored).
-- **Next step**: PAUSED for Luna's review. Proposed: fused gfx906 attention kernel
-  (flash-style, native GQA; compile-time QK int8 v_dot4 | int4+Hadamard v_dot8, PV fp16 |
-  u8 per-tile; est. ALU vs fused fp16: i8/fp16 1.28x, i4/fp16 1.51x, i8/u8 ~1.8x,
-  i4/u8 ~2.3x). Then scale-math work.
+- **Fused attention built** (node repo f9504fd, numbers under Status). Realized 1.5x on
+  the kernel vs the ~2.3x ALU estimate (occupancy: 127-128 VGPRs, 2 waves/SIMD).
+  Luna's dream goal: 3840x2160 -- memory now fits (see Status).
+- **Next step**: find the fallback crossover (512², 768² with 600 text tokens), add the
+  length threshold to `_make_override`; then adaptive PV tiers (skip / int4 / u8 per
+  64x64 block, compile-time switch; watch VGPRs); prep kernel. Then scale-math.
 - **Hazards**:
   - 2026-09-28 hard hang = kernel Oops in kswapd (`__pgalloc_tag_sub`, alloc profiling),
     not GPU. Keep host-RAM churn low: few process launches, whitelist custom nodes.
