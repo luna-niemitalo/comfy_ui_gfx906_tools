@@ -334,6 +334,10 @@
 
       cpuBlasDebug = ''echo "CPU BLAS (LP64)  = ${pkgs.openblasCompat}/lib"'';
 
+      # Native backtraces from core dumps (coredumpctl debug): ROCm runtime crashes don't
+      # show up in Python's faulthandler (e.g. the 2026-09-29 AsyncEventsLoop segfault).
+      debugTools = [ pkgs.gdb ];
+
       ld_library_path = lib.makeLibraryPath (cpuBlasLibs ++ runtimeLibs);
 
       rocmLibraryPath = lib.makeLibraryPath (map (pkg: pkg.drv) (lib.filter (pkg: pkg.addLib) rocmLibs));
@@ -383,6 +387,7 @@
                 pkgs.libGL
 
               ]
+              ++ debugTools
               ++ runtimeLibs;
 
               #
