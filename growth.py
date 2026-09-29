@@ -137,8 +137,9 @@ def pixel_upscale(vae, samples, size, method, upscale_model):
 
 
 def grow(model, positive, negative, vae, samples, target, steps, sigma_start, size_shape, anchor,
-         anchor_shape, cfg, seed, tile_px, overlap_px, tile_batch, upscale_method, upscale_model):
-    """Returns (latent samples at target, schedule dict). `samples`: clean composition latent."""
+         anchor_shape, cfg, seed, tile_px, overlap_px, tile_batch, upscale_method, upscale_model, on_step=None):
+    """Returns (latent samples at target, schedule dict). `samples`: clean composition latent.
+    on_step(k, size, sigma, x0_latent), if given, runs after every growth step."""
     compression = vae.spacial_compression_decode()
     start = (samples.shape[-1] * compression, samples.shape[-2] * compression)
     schedule = {
@@ -167,4 +168,6 @@ def grow(model, positive, negative, vae, samples, target, steps, sigma_start, si
                            torch.tensor([sigma, 0.0]), seed=seed + k, disable_pbar=True)
         x0 = x0.to(samples.device)
         preview(k, model.model.process_latent_in(x0.to(model.load_device)), None, steps)
+        if on_step is not None:
+            on_step(k, size, sigma, x0)
     return x0, schedule
