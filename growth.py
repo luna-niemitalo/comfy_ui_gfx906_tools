@@ -16,6 +16,7 @@ import math
 import time
 
 import numpy as np
+from PIL import Image
 import torch
 import torch.nn.functional as F
 
@@ -23,7 +24,6 @@ import comfy.model_management
 from comfy.cli_args import args
 import comfy.samplers
 import comfy.utils
-import latent_preview
 import nodes
 
 VAE_TILE_PX, VAE_OVERLAP_PX = 512, 64
@@ -296,16 +296,19 @@ class Grower:
                        "tiles": inner["tiles"]}
         return out.to(x0.device)
 
-    def preview_latent(self, x0):
-        """x0 shrunk to preview size in latent space: ComfyUI's TAE previewer decodes the whole
-        latent at full size and only then scales to --preview-size (2.2-2.9 GB per conv at
-        ~2K, OOM next to the UNet in Luna's 4K run, 2026-09-29)."""
-        x = self.model.model.process_latent_in(x0.to(self.model.load_device))
-        longest_px = max(x.shape[-2:]) * self.vae.spacial_compression_decode()
-        stride = math.ceil(longest_px / args.preview_size)
-        # every stride-th latent pixel, not an average: averaged latent codes are off-manifold and
-        # the TAE decodes them as streaks (Luna's first preview, area resize)
-        return x[..., ::stride, ::stride]
+    def preview(self, pbar, k, total, x0):
+        """Show step k in the UI: the step VAE's decode of x0 (cached -- the next step's upscale
+        reuses it), shrunk to --preview-size on the GPU, handed to the progress bar as ComfyUI's
+        own previewers do. Not the TAE previewer: at full size it OOMed next to the UNet (2.2-2.9
+        GB per conv at ~2K), and any latent-space shrink before it decodes garbage (area:
+        streaks, subsampling: checkerboard -- Luna's previews, 2026-09-29)."""
+        image = self.decode_step(x0)[:1]
+        h, w = image.shape[1:3]
+        scale = min(1.0, args.preview_size / max(h, w))
+        if scale < 1:
+            image = resize_image(image, (max(1, round(w * scale)), max(1, round(h * scale))), "lanczos")
+        arr = (image[0].float().clamp(0, 1) * 255).round().to(torch.uint8).cpu().numpy()
+        pbar.update_absolute(k + 1, total, ("JPEG", Image.fromarray(arr), args.preview_size))
 
 
 # ---------------------------------------------------------------------------------------------

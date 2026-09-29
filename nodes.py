@@ -3,7 +3,7 @@ import torch
 from PIL import Image, ImageDraw
 
 import comfy.model_management
-import latent_preview
+import comfy.utils
 
 from . import growth, stop
 
@@ -173,11 +173,14 @@ class ResolutionGrowth:
               flush=True)
 
         grower = make_grower(model, positive, negative, vae, latent, kw, detail_positive, upscale_model, tiny_vae)
-        preview = latent_preview.prepare_callback(model, len(sizes))
+        pbar = comfy.utils.ProgressBar(len(sizes))
         x0 = latent["samples"]
         for k, (size, sigma, anchor) in enumerate(zip(schedule["sizes"], schedule["sigmas"], schedule["anchors"])):
             x0 = grower.step(k, x0, size, sigma, anchor)
-            preview(k, grower.preview_latent(x0), None, len(sizes))
+            if k + 1 < len(sizes):  # the last step's decode would be extra work: the output shows it
+                grower.preview(pbar, k, len(sizes), x0)
+            else:
+                pbar.update_absolute(k + 1, len(sizes))
         if end != (width, height):
             x0 = growth.pixel_upscale(vae, x0, (width, height), "lanczos", None)
         return ({"samples": x0.to(comfy.model_management.intermediate_device())}, schedule_plot(schedule, start))
@@ -230,11 +233,11 @@ class ResolutionGrowthProgressive:
 
         stop.clear(unique_id)
         grower = make_grower(model, positive, negative, vae, latent, kw, detail_positive, upscale_model, tiny_vae)
-        preview = latent_preview.prepare_callback(model, len(sizes))
+        pbar = comfy.utils.ProgressBar(len(sizes))
         x0, image, report, reason = latent["samples"], None, [], "reached max_oversample"
         for k, (size, sigma, anchor) in enumerate(zip(schedule["sizes"], schedule["sigmas"], schedule["anchors"])):
             x0 = grower.step(k, x0, size, sigma, anchor)
-            preview(k, grower.preview_latent(x0), None, len(sizes))
+            grower.preview(pbar, k, len(sizes), x0)
             # the step VAE's decode, shared with the next step's upscale (Grower caches it)
             previous, image = image, growth.resize_image(grower.decode_step(x0), output, "lanczos")
             change = None if previous is None else growth.psnr_db(image, previous)
