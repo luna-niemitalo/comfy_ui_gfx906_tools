@@ -32,20 +32,23 @@ OUT = os.path.join(prog.OUT, "scale")
 
 
 def parse_run(spec):
-    """mode:WxH:n[@WxH][=WxH]
+    """mode:WxH:n[@WxH][=WxH][+path]
+    +path growth upscale path: vae (default) | tiny_vae (Grower.upscale_path; the latent path
+          and %skip settled-tile skipping were tried 2026-09-29 and removed, see CLAUDE.md)
     @WxH  Lanczos-downsample the final result (oversampling, the node's path).
     =WxH  fixed OUTPUT size (Luna's constant-output mode): every step's image is resized to
           it before saving and measuring -- upscaled while the internal size is smaller,
           supersampled once larger."""
-    grow_spec, _, out = spec.partition("=")
+    spec_body, _, path = spec.partition("+")
+    grow_spec, _, out = spec_body.partition("=")
     grow_spec, _, down = grow_spec.partition("@")
     mode, size, n = grow_spec.split(":")
     if mode not in ("geometric", "linear"):
         sys.exit(f"run spec {spec!r}: mode must be geometric|linear, got {mode!r}")
     as_size = lambda s: tuple(int(v) for v in s.split("x")) if s else None  # noqa: E731
-    label = spec.replace(":", "_").replace("@", "_to_").replace("=", "_out_")
+    label = spec.replace(":", "_").replace("@", "_to_").replace("=", "_out_").replace("+", "_")
     return {"label": label, "mode": mode, "target": as_size(size), "n": int(n), "down": as_size(down),
-            "out": as_size(out)}
+            "out": as_size(out), "path": path or "vae"}
 
 
 RUNS = [parse_run(s) for s in (sys.argv[1:] or ["geometric:7680x4320:10"])]
@@ -90,6 +93,11 @@ with torch.inference_mode():
                                         positive=positive, negative=positive, latent_image=latent,
                                         start_at_step=0, end_at_step=8, return_with_leftover_noise="disable")
     comp = decode(vae, composition["samples"])
+    tiny_vae = None
+    if any(run["path"] == "tiny_vae" for run in RUNS):
+        import comfy.sd, comfy.utils  # noqa: E401
+        tiny_vae = comfy.sd.VAE(sd=comfy.utils.load_torch_file("/media/luna/models/VAE-approx/lighttaew2_1.safetensors"),
+                                device=vae.device, dtype=torch.float32)
 
     for run in RUNS:
         run_dir = os.path.join(OUT, run["label"])
@@ -111,7 +119,8 @@ with torch.inference_mode():
                    "change_db": round(psnr(shrink(img, state["prev"].shape[1::-1]), state["prev"]), 2),
                    "measured_at": f"{img.shape[1]}x{img.shape[0]}",
                    "noise": round(noise_sigma(img), 2), "noise_720": round(noise_sigma(small), 2),
-                   "detail": round(prog.detail(img), 2), "detail_720": round(prog.detail(small), 2)}
+                   "detail": round(prog.detail(img), 2), "detail_720": round(prog.detail(small), 2),
+                   **{k: round(v, 2) for k, v in state["grower"].timing.items()}}
             run["rows"].append(row)
             print(json.dumps(row), flush=True)
             state["prev"] = img
@@ -124,7 +133,8 @@ with torch.inference_mode():
             sizes = growth.geometric_sizes(prog.NATIVE, run["target"], run["n"], 1.0, grid)
         schedule = growth.make_schedule(model, prog.NATIVE, sizes, 0.5, 0.0, 1.0, 2.0)
         grower = growth.Grower(model, detail_positive, positive, vae, composition["samples"], 1.0, prog.SEED + 1,
-                               1024, 256, 4, "lanczos", None)
+                               1024, 256, 4, "lanczos", None, run["path"], tiny_vae if run["path"] == "tiny_vae" else None)
+        state["grower"] = grower
         final = composition["samples"]
         for k, (size, sigma, anchor) in enumerate(zip(schedule["sizes"], schedule["sigmas"], schedule["anchors"])):
             final = grower.step(k, final, size, sigma, anchor)

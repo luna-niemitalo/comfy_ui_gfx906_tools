@@ -38,7 +38,7 @@ def save(images, name):
 
 
 GROWTH = dict(sigma_start=0.5, sigma_end=0.0, anchor=1.0, anchor_shape=2.0, cfg=1.0, seed=prog.SEED + 1,
-              tile_size=1024, tile_overlap=256, tile_batch=4, upscale_method="lanczos")
+              tile_size=1024, tile_overlap=256, tile_batch=4, upscale_method="lanczos", upscale_path="vae")
 
 resolved = pipeline.resolve({"kind": "moodykrea_int4", "prompt": prog.PROMPT,
                              "latent": {"width": prog.NATIVE[0], "height": prog.NATIVE[1]}})
