@@ -42,11 +42,14 @@ __device__ __forceinline__ void from_float(float v, float* out) { *out = v; }
 __device__ __forceinline__ void from_float(float v, __half* out) { *out = __float2half(v); }
 __device__ __forceinline__ void from_float(float v, __hip_bfloat16* out) { *out = __float2bfloat16(v); }
 
+// Split-K: blockIdx.y picks a slice of `tiles_per_split` K stages. With one
+// split C is the output; otherwise C is an fp32 workspace [splits, M, N] with
+// no bias, summed by splitk_reduce_kernel (gfx906 has no global float atomics).
 template <typename T>
 __global__ void __launch_bounds__(THREADS) __attribute__((amdgpu_waves_per_eu(2))) int4_gemm_kernel(
     const uint4* __restrict__ A, const float* __restrict__ A_scale,
     const uint4* __restrict__ B, const float* __restrict__ B_scale,
-    const T* __restrict__ bias, T* __restrict__ C, int M, int N, int n_blocks) {
+    const T* __restrict__ bias, T* __restrict__ C, int M, int N, int n_blocks, int tiles_per_split) {
     __shared__ uint4 As[BM * ROW];
     __shared__ uint4 Bs[BN * ROW];
     __shared__ float As_scale[BK_BLOCKS][BM];
@@ -93,15 +96,17 @@ __global__ void __launch_bounds__(THREADS) __attribute__((amdgpu_waves_per_eu(2)
         bs_pref = b_ok ? B_scale[(size_t)load_n * n_blocks + kb] : 0.0f;
     };
 
-    const int k_tiles = (n_blocks + BK_BLOCKS - 1) / BK_BLOCKS;
-    load_stage(0);
-    for (int kt = 0; kt < k_tiles; kt++) {
+    const int k_first = blockIdx.y * tiles_per_split;
+    const int k_end = min((n_blocks + BK_BLOCKS - 1) / BK_BLOCKS, k_first + tiles_per_split);
+    C += (size_t)blockIdx.y * M * N;
+    load_stage(k_first);
+    for (int kt = k_first; kt < k_end; kt++) {
         As[load_r * ROW + load_c] = a_pref;
         As_scale[load_c][load_r] = as_pref;
         Bs[load_r * ROW + load_c] = b_pref;
         Bs_scale[load_c][load_r] = bs_pref;
         __syncthreads();
-        if (kt + 1 < k_tiles) load_stage(kt + 1);
+        if (kt + 1 < k_end) load_stage(kt + 1);
 
 #pragma unroll 1
         for (int c = 0; c < BK_BLOCKS; c++) {
@@ -144,6 +149,17 @@ __global__ void __launch_bounds__(THREADS) __attribute__((amdgpu_waves_per_eu(2)
     }
 }
 
+template <typename T>
+__global__ void splitk_reduce_kernel(const float* __restrict__ partial, const T* __restrict__ bias, T* __restrict__ C,
+                                     int splits, long MN, int N) {
+    long idx = (long)blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx >= MN) return;
+    float v = 0.0f;
+    for (int s = 0; s < splits; s++) v += partial[s * MN + idx];
+    if (bias) v += to_float(bias[idx % N]);
+    from_float(v, &C[idx]);
+}
+
 // One thread per 32-element quant block: read, amax, scale, round, pack.
 // Must match ops.quantize_pack_int4 bit-for-bit (same fp32 divide, rint =
 // round-half-even like torch.round), so weights quantized by the Python
@@ -180,12 +196,23 @@ static void quantize_launch(const void* x, void* packed, float* scale, long tota
     quantize_int4_kernel<T><<<grid, THREADS, 0, stream>>>((const T*)x, (uint4*)packed, scale, total_blocks);
 }
 
+// splits > 1 needs `workspace`: fp32 [splits, M, N]
 template <typename T>
 static void gemm_launch(const void* A, const float* As, const void* B, const float* Bs, const void* bias, void* C,
-                        int M, int N, int n_blocks, hipStream_t stream) {
+                        int M, int N, int n_blocks, int splits, float* workspace, hipStream_t stream) {
     int tiles = ((M + BM - 1) / BM) * ((N + BN - 1) / BN);
-    int4_gemm_kernel<T><<<tiles, THREADS, 0, stream>>>(
-        (const uint4*)A, As, (const uint4*)B, Bs, (const T*)bias, (T*)C, M, N, n_blocks);
+    int k_tiles = (n_blocks + BK_BLOCKS - 1) / BK_BLOCKS;
+    int tiles_per_split = (k_tiles + splits - 1) / splits;
+    if (splits == 1) {
+        int4_gemm_kernel<T><<<dim3(tiles, 1), THREADS, 0, stream>>>(
+            (const uint4*)A, As, (const uint4*)B, Bs, (const T*)bias, (T*)C, M, N, n_blocks, tiles_per_split);
+        return;
+    }
+    int4_gemm_kernel<float><<<dim3(tiles, splits), THREADS, 0, stream>>>(
+        (const uint4*)A, As, (const uint4*)B, Bs, nullptr, workspace, M, N, n_blocks, tiles_per_split);
+    long MN = (long)M * N;
+    splitk_reduce_kernel<T><<<(MN + THREADS - 1) / THREADS, THREADS, 0, stream>>>(
+        workspace, (const T*)bias, (T*)C, splits, MN, N);
 }
 
 void quantize_int4_dispatch(int dtype, const void* x, void* packed, float* scale, long total_blocks, hipStream_t stream) {
@@ -194,9 +221,12 @@ void quantize_int4_dispatch(int dtype, const void* x, void* packed, float* scale
     else quantize_launch<__hip_bfloat16>(x, packed, scale, total_blocks, stream);
 }
 
-void gemm_dispatch(int dtype, const void* A, const float* As, const void* B, const float* Bs,
-                   const void* bias, void* C, int M, int N, int n_blocks, hipStream_t stream) {
-    if (dtype == 0) gemm_launch<float>(A, As, B, Bs, bias, C, M, N, n_blocks, stream);
-    else if (dtype == 1) gemm_launch<__half>(A, As, B, Bs, bias, C, M, N, n_blocks, stream);
-    else gemm_launch<__hip_bfloat16>(A, As, B, Bs, bias, C, M, N, n_blocks, stream);
+void gemm_dispatch(int dtype, const void* A, const float* As, const void* B, const float* Bs, const void* bias,
+                   void* C, int M, int N, int n_blocks, int splits, float* workspace, hipStream_t stream) {
+    if (dtype == 0) gemm_launch<float>(A, As, B, Bs, bias, C, M, N, n_blocks, splits, workspace, stream);
+    else if (dtype == 1) gemm_launch<__half>(A, As, B, Bs, bias, C, M, N, n_blocks, splits, workspace, stream);
+    else gemm_launch<__hip_bfloat16>(A, As, B, Bs, bias, C, M, N, n_blocks, splits, workspace, stream);
 }
+
+int gemm_tiles(int M, int N) { return ((M + BM - 1) / BM) * ((N + BN - 1) / BN); }
+int gemm_k_tiles(int n_blocks) { return (n_blocks + BK_BLOCKS - 1) / BK_BLOCKS; }
