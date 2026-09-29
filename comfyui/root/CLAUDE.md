@@ -230,7 +230,17 @@ Run Krea2 (and other DiT image models) fast on 2x Radeon VII (gfx906) via a nati
         unmeasurable (58.2 vs 59.2 s serialized). Any tiled node must keep this.
         Verified: `grow_n6_3840_split.png` 3840x2160, 2 GPUs: compose 16 s + growth 115 s
         (steps: denoise 3.2 / 11.4 / 11.7 / 16.0 / 16.4 / 34.2 s, upscale 1.5-7.5 s),
-        detail 4.2. Luna's verdict vs PiD pending. Next: node with size/sigma/anchor curves. Later: int4 treatment (bf16 is fp32 math
+        detail 4.2. **Luna: "that is clean... thus far the best, even above the PiD".**
+        => the growth method is the upscale path.
+     g. **Node built**: `custom_nodes/ComfyUI-ResolutionGrowth` (own git repo, afef4a7;
+        standalone -- Luna: separate extension if not GPU-tied; whitelisted in run.nu).
+        "Resolution Growth": model/pos/neg/vae/composition latent -> LATENT + schedule plot;
+        width/height, growth_steps, sigma_start, size_shape, anchor, anchor_shape, cfg, seed,
+        tile size/overlap/batch, upscale_method; optional detail_positive, upscale_model.
+        Noise scaling left to comfy (CFGGuider.sample at sigmas [s, 0]) -> model-type
+        agnostic. develop/experiments/2026-09-29/node_test.py: 3840x2160, 2 GPUs,
+        16 + 104 s, 32.7 dB vs grow_test (direct x0 vs 1-step er_sde). Not yet tried by
+        Luna in the UI. Later (int4 extension): shrink the VAE's ~5 GB for the VAE steps. Later: int4 treatment (bf16 is fp32 math
         on gfx906). Earlier notes: PiD node registered via nodes.load_custom_node (the
         experiments' whitelist excludes it): compose 1024x576 -> PiDDecode qwenimage 2kto4k -> 4096x2304
         vs VAE + Lanczos 4x. PiD is per latent space (VAE), not per model. Files moved by
