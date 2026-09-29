@@ -2,7 +2,7 @@ import numpy as np
 import torch
 from PIL import Image, ImageDraw
 
-from .growth import SNAP_PX, grow
+from .growth import SNAP_PX, grow, pixel_upscale, snap
 
 PLOT_W, PLOT_H, PLOT_PAD = 768, 320, 36
 CURVE_COLORS = {"size": (80, 170, 255), "sigma": (255, 150, 60), "anchor": (120, 220, 120)}
@@ -69,6 +69,7 @@ class ResolutionGrowth:
                 "tile_overlap": ("INT", {"default": 256, "min": 0, "max": 2048, "step": SNAP_PX}),
                 "tile_batch": ("INT", {"default": 3, "min": 1, "max": 64, "tooltip": "Tiles per model call. With the Gfx906 two-GPU split node, use an even number (4 = 2 per GPU)."}),
                 "upscale_method": (["lanczos", "bicubic", "bilinear", "area", "nearest-exact"], {"default": "lanczos"}),
+                "oversample": ("FLOAT", {"default": 1.0, "min": 1.0, "max": 4.0, "step": 0.05, "tooltip": "Supersampling: grow to width/height x this, then Lanczos down to width/height (several samples per output pixel). Time grows with the area."}),
             },
             "optional": {
                 "detail_positive": ("CONDITIONING", {"tooltip": "Prompt for the tiles: describe materials / texture / style, not the subject or its placement (every tile would draw it)."}),
@@ -84,14 +85,17 @@ class ResolutionGrowth:
 
     def sample(self, model, positive, negative, vae, latent, width, height, growth_mode, growth_steps, step_px,
                sigma_start, size_shape, anchor, anchor_shape, cfg, seed, tile_size, tile_overlap, tile_batch,
-               upscale_method, detail_positive=None, upscale_model=None):
+               upscale_method, oversample, detail_positive=None, upscale_model=None):
+        grow_to = (snap(width * oversample), snap(height * oversample))
         samples, schedule = grow(model, detail_positive if detail_positive is not None else positive, negative,
-                                 vae, latent["samples"], (width, height), growth_mode, growth_steps, step_px,
+                                 vae, latent["samples"], grow_to, growth_mode, growth_steps, step_px,
                                  sigma_start, size_shape, anchor, anchor_shape, cfg, seed, tile_size, tile_overlap,
                                  tile_batch, upscale_method, upscale_model)
+        if grow_to != (width, height):
+            samples = pixel_upscale(vae, samples, (width, height), "lanczos", None)
         compression = vae.spacial_compression_decode()
         start = (latent["samples"].shape[-1] * compression, latent["samples"].shape[-2] * compression)
-        return ({"samples": samples}, schedule_plot(schedule, start, (width, height)))
+        return ({"samples": samples}, schedule_plot(schedule, start, grow_to))
 
 
 NODE_CLASS_MAPPINGS = {"ResolutionGrowth": ResolutionGrowth}
