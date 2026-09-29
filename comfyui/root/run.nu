@@ -77,11 +77,12 @@ let args = [
   "--fast=fp16_accumulation"
   #"--disable-dynamic-vram"
   # Precision control
-  # VAE in FP32: --force-fp16 below would otherwise make the Qwen-Image/Wan VAE fp16, which on
-  # gfx906 is ~1.5x slower than fp32 (2560x1440 tiled decode 2.47 vs 1.65 s) and once gave a
-  # nondeterministic 0.52 pixel error (develop/experiments/2026-09-29/vae_bench.py).
-  # Overrides only the VAE; UNet/text encoder keep --force-fp16.
-  "--fp32-vae"
+  # VAE in FP16. Depends on --disable-miopen below: with MIOpen, fp16 was ~1.5x SLOWER than fp32
+  # and once gave a nondeterministic 0.52 pixel error (vae_bench.py). Without it (rocBLAS convs),
+  # fp16 is 1.43x faster (2560x1440 tiled decode 2.42 vs 3.47 s, encode 1.43 vs 2.02 s), 65-82 dB
+  # vs fp32 on real renders, finite on stress images (develop/experiments/2026-09-29/
+  # vae_int8_bench.py, vae_fp16_check.py). If MIOpen comes back on, go back to --fp32-vae.
+  "--fp16-vae"
   #"--cpu-vae"
   #"--fp16-unet"        # Run UNet in FP16
   "--force-fp16"       # Force FP16 everywhere possible
