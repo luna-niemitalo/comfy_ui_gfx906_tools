@@ -117,15 +117,21 @@ with torch.inference_mode():
             state["prev"] = img
             state["t"] = time.perf_counter()
 
-        final, schedule = growth.grow(
-            model, detail_positive, positive, vae, composition["samples"], run["target"], run["mode"], run["n"],
-            run["n"], sigma_start=0.5, size_shape=1.0, anchor=1.0, anchor_shape=2.0, cfg=1.0, seed=prog.SEED + 1,
-            tile_px=1024, overlap_px=256, tile_batch=4, upscale_method="lanczos", upscale_model=None,
-            on_step=report)
+        grid = growth.snap_px(vae)
+        if run["mode"] == "linear":
+            sizes = growth.linear_sizes(prog.NATIVE, run["target"], run["n"], grid)
+        else:
+            sizes = growth.geometric_sizes(prog.NATIVE, run["target"], run["n"], 1.0, grid)
+        schedule = growth.make_schedule(model, prog.NATIVE, sizes, 0.5, 0.0, 1.0, 2.0)
+        grower = growth.Grower(model, detail_positive, positive, vae, composition["samples"], 1.0, prog.SEED + 1,
+                               1024, 256, 4, "lanczos", None)
+        final = composition["samples"]
+        for k, (size, sigma, anchor) in enumerate(zip(schedule["sizes"], schedule["sigmas"], schedule["anchors"])):
+            final = grower.step(k, final, size, sigma, anchor)
+            report(k, size, sigma, final)
         if run["down"]:
             # the node's oversample path: pixel-space Lanczos down to the output size
-            report(len(schedule["sizes"]), run["down"], 0.0,
-                   growth.pixel_upscale(vae, final, run["down"], "lanczos", None))
+            report(len(sizes), run["down"], 0.0, growth.pixel_upscale(vae, final, run["down"], "lanczos", None))
 
 import matplotlib  # noqa: E402
 matplotlib.use("Agg")
