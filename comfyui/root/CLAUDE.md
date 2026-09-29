@@ -67,6 +67,10 @@ Run Krea2 (and other DiT image models) fast on 2x Radeon VII (gfx906) via a nati
   int8. int8 PV works with per-(row, 64-key tile) P scale (u8, v_dot4_u32_u8, V offset
   to unsigned): +0.5-0.9% error, renders clean; a fixed 1/127 P scale was the 4-11%.
   fp16 backend itself is 1.6-8.8% off in block 0 (outliers); int8 per-token beats it.
+  Adaptive PV per 64x64 block (Luna's idea): min-max (row max/min <= 16) qualifies ~0%
+  of blocks; importance does -- skip if block max P < 1e-4 of row peak (0-28%, blocks
+  0/27 most local), int4 P+V if < 0.1 (21-50% of blocks), else int8: error 0.47-0.80%
+  vs 0.42-0.68% all-int8. Est. +~1.15x over int4-QK/int8-PV. 1024x576 captures only.
   Sheets: `develop/out/attn_quant/attn_sheet*.png` (gitignored).
 - **Next step**: PAUSED for Luna's review. Proposed: fused gfx906 attention kernel
   (flash-style, native GQA; compile-time QK int8 v_dot4 | int4+Hadamard v_dot8, PV fp16 |
