@@ -302,13 +302,10 @@ class Grower:
         ~2K, OOM next to the UNet in Luna's 4K run, 2026-09-29)."""
         x = self.model.model.process_latent_in(x0.to(self.model.load_device))
         longest_px = max(x.shape[-2:]) * self.vae.spacial_compression_decode()
-        scale = args.preview_size / longest_px
-        if scale >= 1:
-            return x
-        size = [max(1, round(d * scale)) for d in x.shape[-2:]]
-        # area resize acts per plane: any leading dims (B, C, T) fold into the batch
-        small = F.interpolate(x.reshape(-1, 1, *x.shape[-2:]), size=size, mode="area")
-        return small.reshape(*x.shape[:-2], *size)
+        stride = math.ceil(longest_px / args.preview_size)
+        # every stride-th latent pixel, not an average: averaged latent codes are off-manifold and
+        # the TAE decodes them as streaks (Luna's first preview, area resize)
+        return x[..., ::stride, ::stride]
 
 
 # ---------------------------------------------------------------------------------------------
