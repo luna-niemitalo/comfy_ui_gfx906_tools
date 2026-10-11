@@ -1,0 +1,182 @@
+gpu_run: card0 lock, HIP sees 0000:10:00.0 (hidden: 0000:0d:00.0), timeout 1500 s
+{"section": "device", "name": "AMD Radeon VII", "arch": "gfx906:sramecc-:xnack-", "cus": 60, "visible": 1, "torch": "2.14.0a0+gitdab0373"}
+Checking AMD architecture for optimal settings...
+Detected AMD architecture: gfx906
+{"section": "peak", "op": "fma_f32", "tops": 11.63}
+{"section": "peak", "op": "pk_fma_f16", "tops": 23.47}
+{"section": "peak", "op": "dot2_f32_f16", "tops": 24.21}
+{"section": "peak", "op": "dot4_i8", "tops": 47.77}
+{"section": "peak", "op": "dot8_i4", "tops": 95.95}
+{"section": "gemm", "model": "1B", "shape": "qkv", "k": 2048, "n": 6144, "path": "fp32", "pass_": "fwd", "tflops": 10.78}
+{"section": "gemm", "model": "1B", "shape": "qkv", "k": 2048, "n": 6144, "path": "fp32", "pass_": "dgrad", "tflops": 8.98}
+{"section": "gemm", "model": "1B", "shape": "qkv", "k": 2048, "n": 6144, "path": "fp32", "pass_": "wgrad", "tflops": 9.06}
+{"section": "gemm", "model": "1B", "shape": "qkv", "k": 2048, "n": 6144, "path": "fp16", "pass_": "fwd", "tflops": 10.68}
+{"section": "gemm", "model": "1B", "shape": "qkv", "k": 2048, "n": 6144, "path": "fp16", "pass_": "dgrad", "tflops": 17.53}
+{"section": "gemm", "model": "1B", "shape": "qkv", "k": 2048, "n": 6144, "path": "fp16", "pass_": "wgrad", "tflops": 17.22}
+{"section": "gemm", "model": "1B", "shape": "qkv", "k": 2048, "n": 6144, "path": "bf16", "pass_": "fwd", "tflops": 4.83}
+{"section": "gemm", "model": "1B", "shape": "qkv", "k": 2048, "n": 6144, "path": "bf16", "pass_": "dgrad", "tflops": 5.27}
+{"section": "gemm", "model": "1B", "shape": "qkv", "k": 2048, "n": 6144, "path": "bf16", "pass_": "wgrad", "tflops": 0.2}
+{"section": "gemm", "model": "1B", "shape": "o", "k": 2048, "n": 2048, "path": "fp32", "pass_": "fwd", "tflops": 9.37}
+{"section": "gemm", "model": "1B", "shape": "o", "k": 2048, "n": 2048, "path": "fp32", "pass_": "dgrad", "tflops": 9.71}
+{"section": "gemm", "model": "1B", "shape": "o", "k": 2048, "n": 2048, "path": "fp32", "pass_": "wgrad", "tflops": 10.27}
+{"section": "gemm", "model": "1B", "shape": "o", "k": 2048, "n": 2048, "path": "fp16", "pass_": "fwd", "tflops": 13.34}
+{"section": "gemm", "model": "1B", "shape": "o", "k": 2048, "n": 2048, "path": "fp16", "pass_": "dgrad", "tflops": 17.23}
+{"section": "gemm", "model": "1B", "shape": "o", "k": 2048, "n": 2048, "path": "fp16", "pass_": "wgrad", "tflops": 17.52}
+{"section": "gemm", "model": "1B", "shape": "o", "k": 2048, "n": 2048, "path": "bf16", "pass_": "fwd", "tflops": 4.68}
+{"section": "gemm", "model": "1B", "shape": "o", "k": 2048, "n": 2048, "path": "bf16", "pass_": "dgrad", "tflops": 5.26}
+{"section": "gemm", "model": "1B", "shape": "o", "k": 2048, "n": 2048, "path": "bf16", "pass_": "wgrad", "tflops": 0.2}
+{"section": "gemm", "model": "1B", "shape": "gate_up", "k": 2048, "n": 16384, "path": "fp32", "pass_": "fwd", "tflops": 10.1}
+{"section": "gemm", "model": "1B", "shape": "gate_up", "k": 2048, "n": 16384, "path": "fp32", "pass_": "dgrad", "tflops": 7.77}
+{"section": "gemm", "model": "1B", "shape": "gate_up", "k": 2048, "n": 16384, "path": "fp32", "pass_": "wgrad", "tflops": 2.21}
+{"section": "gemm", "model": "1B", "shape": "gate_up", "k": 2048, "n": 16384, "path": "fp16", "pass_": "fwd", "tflops": 16.27}
+{"section": "gemm", "model": "1B", "shape": "gate_up", "k": 2048, "n": 16384, "path": "fp16", "pass_": "dgrad", "tflops": 17.84}
+{"section": "gemm", "model": "1B", "shape": "gate_up", "k": 2048, "n": 16384, "path": "fp16", "pass_": "wgrad", "tflops": 7.73}
+{"section": "gemm", "model": "1B", "shape": "gate_up", "k": 2048, "n": 16384, "path": "bf16", "pass_": "fwd", "tflops": 4.86}
+{"section": "gemm", "model": "1B", "shape": "gate_up", "k": 2048, "n": 16384, "path": "bf16", "pass_": "dgrad", "tflops": 5.16}
+{"section": "gemm", "model": "1B", "shape": "gate_up", "k": 2048, "n": 16384, "path": "bf16", "pass_": "wgrad", "tflops": 0.12}
+{"section": "gemm", "model": "1B", "shape": "down", "k": 8192, "n": 2048, "path": "fp32", "pass_": "fwd", "tflops": 9.8}
+{"section": "gemm", "model": "1B", "shape": "down", "k": 8192, "n": 2048, "path": "fp32", "pass_": "dgrad", "tflops": 10.3}
+{"section": "gemm", "model": "1B", "shape": "down", "k": 8192, "n": 2048, "path": "fp32", "pass_": "wgrad", "tflops": 10.62}
+{"section": "gemm", "model": "1B", "shape": "down", "k": 8192, "n": 2048, "path": "fp16", "pass_": "fwd", "tflops": 10.44}
+{"section": "gemm", "model": "1B", "shape": "down", "k": 8192, "n": 2048, "path": "fp16", "pass_": "dgrad", "tflops": 16.56}
+{"section": "gemm", "model": "1B", "shape": "down", "k": 8192, "n": 2048, "path": "fp16", "pass_": "wgrad", "tflops": 2.89}
+{"section": "gemm", "model": "1B", "shape": "down", "k": 8192, "n": 2048, "path": "bf16", "pass_": "fwd", "tflops": 3.96}
+{"section": "gemm", "model": "1B", "shape": "down", "k": 8192, "n": 2048, "path": "bf16", "pass_": "dgrad", "tflops": 5.3}
+{"section": "gemm", "model": "1B", "shape": "down", "k": 8192, "n": 2048, "path": "bf16", "pass_": "wgrad", "tflops": 0.2}
+{"section": "gemm", "model": "1B", "shape": "qkv", "k": 2048, "n": 6144, "path": "int8_b32", "pass_": "fwd", "config": 3, "tflops": 17.73, "rel_err": 0.0076}
+{"section": "gemm", "model": "1B", "shape": "qkv", "k": 2048, "n": 6144, "path": "int8_b32", "pass_": "dgrad", "config": 3, "tflops": 17.43, "rel_err": 0.0076}
+{"section": "gemm", "model": "1B", "shape": "qkv", "k": 2048, "n": 6144, "path": "int8_b32", "pass_": "wgrad", "config": 3, "tflops": 5.25, "rel_err": 0.0076}
+{"section": "gemm", "model": "1B", "shape": "qkv", "k": 2048, "n": 6144, "path": "int4_b32", "pass_": "fwd", "tflops": 38.52, "rel_err": 0.1376}
+{"section": "gemm", "model": "1B", "shape": "qkv", "k": 2048, "n": 6144, "path": "int4_b32", "pass_": "dgrad", "tflops": 37.79, "rel_err": 0.1375}
+{"section": "gemm", "model": "1B", "shape": "o", "k": 2048, "n": 2048, "path": "int8_b32", "pass_": "fwd", "config": 3, "tflops": 16.52, "rel_err": 0.0076}
+{"section": "gemm", "model": "1B", "shape": "o", "k": 2048, "n": 2048, "path": "int8_b32", "pass_": "dgrad", "config": 3, "tflops": 16.49, "rel_err": 0.0076}
+{"section": "gemm", "model": "1B", "shape": "o", "k": 2048, "n": 2048, "path": "int8_b32", "pass_": "wgrad", "config": 3, "tflops": 3.37, "rel_err": 0.0076}
+{"section": "gemm", "model": "1B", "shape": "o", "k": 2048, "n": 2048, "path": "int4_b32", "pass_": "fwd", "tflops": 36.52, "rel_err": 0.1375}
+{"section": "gemm", "model": "1B", "shape": "o", "k": 2048, "n": 2048, "path": "int4_b32", "pass_": "dgrad", "tflops": 36.17, "rel_err": 0.1375}
+{"section": "gemm", "model": "1B", "shape": "gate_up", "k": 2048, "n": 16384, "path": "int8_b32", "pass_": "fwd", "config": 3, "tflops": 17.08, "rel_err": 0.0076}
+{"section": "gemm", "model": "1B", "shape": "gate_up", "k": 2048, "n": 16384, "path": "int8_b32", "pass_": "dgrad", "config": 3, "tflops": 16.05, "rel_err": 0.0076}
+{"section": "gemm", "model": "1B", "shape": "gate_up", "k": 2048, "n": 16384, "path": "int8_b32", "pass_": "wgrad", "config": 3, "tflops": 3.41, "rel_err": 0.0076}
+{"section": "gemm", "model": "1B", "shape": "gate_up", "k": 2048, "n": 16384, "path": "int4_b32", "pass_": "fwd", "tflops": 38.9, "rel_err": 0.1376}
+{"section": "gemm", "model": "1B", "shape": "gate_up", "k": 2048, "n": 16384, "path": "int4_b32", "pass_": "dgrad", "tflops": 36.07, "rel_err": 0.1376}
+{"section": "gemm", "model": "1B", "shape": "down", "k": 8192, "n": 2048, "path": "int8_b32", "pass_": "fwd", "config": 3, "tflops": 15.78, "rel_err": 0.0076}
+{"section": "gemm", "model": "1B", "shape": "down", "k": 8192, "n": 2048, "path": "int8_b32", "pass_": "dgrad", "config": 3, "tflops": 17.07, "rel_err": 0.0076}
+{"section": "gemm", "model": "1B", "shape": "down", "k": 8192, "n": 2048, "path": "int8_b32", "pass_": "wgrad", "config": 3, "tflops": 3.89, "rel_err": 0.0076}
+{"section": "gemm", "model": "1B", "shape": "down", "k": 8192, "n": 2048, "path": "int4_b32", "pass_": "fwd", "tflops": 35.45, "rel_err": 0.1375}
+{"section": "gemm", "model": "1B", "shape": "down", "k": 8192, "n": 2048, "path": "int4_b32", "pass_": "dgrad", "tflops": 36.99, "rel_err": 0.1375}
+{"section": "gemm", "model": "7B", "shape": "qkv", "k": 4096, "n": 12288, "path": "fp32", "pass_": "fwd", "tflops": 9.82}
+{"section": "gemm", "model": "7B", "shape": "qkv", "k": 4096, "n": 12288, "path": "fp32", "pass_": "dgrad", "tflops": 10.01}
+{"section": "gemm", "model": "7B", "shape": "qkv", "k": 4096, "n": 12288, "path": "fp32", "pass_": "wgrad", "tflops": 9.75}
+{"section": "gemm", "model": "7B", "shape": "qkv", "k": 4096, "n": 12288, "path": "fp16", "pass_": "fwd", "tflops": 15.6}
+{"section": "gemm", "model": "7B", "shape": "qkv", "k": 4096, "n": 12288, "path": "fp16", "pass_": "dgrad", "tflops": 17.62}
+{"section": "gemm", "model": "7B", "shape": "qkv", "k": 4096, "n": 12288, "path": "fp16", "pass_": "wgrad", "tflops": 6.45}
+{"section": "gemm", "model": "7B", "shape": "qkv", "k": 4096, "n": 12288, "path": "bf16", "pass_": "fwd", "tflops": 4.42}
+{"section": "gemm", "model": "7B", "shape": "qkv", "k": 4096, "n": 12288, "path": "bf16", "pass_": "dgrad", "tflops": 4.93}
+{"section": "gemm", "model": "7B", "shape": "qkv", "k": 4096, "n": 12288, "path": "bf16", "pass_": "wgrad", "tflops": 0.17}
+{"section": "gemm", "model": "7B", "shape": "o", "k": 4096, "n": 4096, "path": "fp32", "pass_": "fwd", "tflops": 10.02}
+{"section": "gemm", "model": "7B", "shape": "o", "k": 4096, "n": 4096, "path": "fp32", "pass_": "dgrad", "tflops": 9.86}
+{"section": "gemm", "model": "7B", "shape": "o", "k": 4096, "n": 4096, "path": "fp32", "pass_": "wgrad", "tflops": 9.84}
+{"section": "gemm", "model": "7B", "shape": "o", "k": 4096, "n": 4096, "path": "fp16", "pass_": "fwd", "tflops": 9.66}
+{"section": "gemm", "model": "7B", "shape": "o", "k": 4096, "n": 4096, "path": "fp16", "pass_": "dgrad", "tflops": 9.84}
+{"section": "gemm", "model": "7B", "shape": "o", "k": 4096, "n": 4096, "path": "fp16", "pass_": "wgrad", "tflops": 11.31}
+{"section": "gemm", "model": "7B", "shape": "o", "k": 4096, "n": 4096, "path": "bf16", "pass_": "fwd", "tflops": 4.3}
+{"section": "gemm", "model": "7B", "shape": "o", "k": 4096, "n": 4096, "path": "bf16", "pass_": "dgrad", "tflops": 4.94}
+{"section": "gemm", "model": "7B", "shape": "o", "k": 4096, "n": 4096, "path": "bf16", "pass_": "wgrad", "tflops": 0.17}
+{"section": "gemm", "model": "7B", "shape": "gate_up", "k": 4096, "n": 22016, "path": "fp32", "pass_": "fwd", "tflops": 9.71}
+{"section": "gemm", "model": "7B", "shape": "gate_up", "k": 4096, "n": 22016, "path": "fp32", "pass_": "dgrad", "tflops": 9.67}
+{"section": "gemm", "model": "7B", "shape": "gate_up", "k": 4096, "n": 22016, "path": "fp32", "pass_": "wgrad", "tflops": 9.88}
+{"section": "gemm", "model": "7B", "shape": "gate_up", "k": 4096, "n": 22016, "path": "fp16", "pass_": "fwd", "tflops": 15.38}
+{"section": "gemm", "model": "7B", "shape": "gate_up", "k": 4096, "n": 22016, "path": "fp16", "pass_": "dgrad", "tflops": 17.35}
+{"section": "gemm", "model": "7B", "shape": "gate_up", "k": 4096, "n": 22016, "path": "fp16", "pass_": "wgrad", "tflops": 18.11}
+{"section": "gemm", "model": "7B", "shape": "gate_up", "k": 4096, "n": 22016, "path": "bf16", "pass_": "fwd", "tflops": 4.31}
+{"section": "gemm", "model": "7B", "shape": "gate_up", "k": 4096, "n": 22016, "path": "bf16", "pass_": "dgrad", "tflops": 4.87}
+{"section": "gemm", "model": "7B", "shape": "gate_up", "k": 4096, "n": 22016, "path": "bf16", "pass_": "wgrad", "tflops": 0.43}
+{"section": "gemm", "model": "7B", "shape": "down", "k": 11008, "n": 4096, "path": "fp32", "pass_": "fwd", "tflops": 9.52}
+{"section": "gemm", "model": "7B", "shape": "down", "k": 11008, "n": 4096, "path": "fp32", "pass_": "dgrad", "tflops": 9.4}
+{"section": "gemm", "model": "7B", "shape": "down", "k": 11008, "n": 4096, "path": "fp32", "pass_": "wgrad", "tflops": 9.88}
+{"section": "gemm", "model": "7B", "shape": "down", "k": 11008, "n": 4096, "path": "fp16", "pass_": "fwd", "tflops": 16.84}
+{"section": "gemm", "model": "7B", "shape": "down", "k": 11008, "n": 4096, "path": "fp16", "pass_": "dgrad", "tflops": 13.15}
+{"section": "gemm", "model": "7B", "shape": "down", "k": 11008, "n": 4096, "path": "fp16", "pass_": "wgrad", "tflops": 7.91}
+{"section": "gemm", "model": "7B", "shape": "down", "k": 11008, "n": 4096, "path": "bf16", "pass_": "fwd", "tflops": 2.91}
+{"section": "gemm", "model": "7B", "shape": "down", "k": 11008, "n": 4096, "path": "bf16", "pass_": "dgrad", "tflops": 4.84}
+{"section": "gemm", "model": "7B", "shape": "down", "k": 11008, "n": 4096, "path": "bf16", "pass_": "wgrad", "tflops": 0.17}
+{"section": "gemm", "model": "7B", "shape": "qkv", "k": 4096, "n": 12288, "path": "int8_b32", "pass_": "fwd", "config": 3, "tflops": 16.39, "rel_err": 0.0076}
+{"section": "gemm", "model": "7B", "shape": "qkv", "k": 4096, "n": 12288, "path": "int8_b32", "pass_": "dgrad", "config": 3, "tflops": 16.13, "rel_err": 0.0076}
+{"section": "gemm", "model": "7B", "shape": "qkv", "k": 4096, "n": 12288, "path": "int8_b32", "pass_": "wgrad", "config": 3, "tflops": 6.36, "rel_err": 0.0076}
+{"section": "gemm", "model": "7B", "shape": "qkv", "k": 4096, "n": 12288, "path": "int4_b32", "pass_": "fwd", "tflops": 35.98, "rel_err": 0.1376}
+{"section": "gemm", "model": "7B", "shape": "qkv", "k": 4096, "n": 12288, "path": "int4_b32", "pass_": "dgrad", "tflops": 35.65, "rel_err": 0.1376}
+{"section": "gemm", "model": "7B", "shape": "o", "k": 4096, "n": 4096, "path": "int8_b32", "pass_": "fwd", "config": 3, "tflops": 16.05, "rel_err": 0.0076}
+{"section": "gemm", "model": "7B", "shape": "o", "k": 4096, "n": 4096, "path": "int8_b32", "pass_": "dgrad", "config": 3, "tflops": 16.08, "rel_err": 0.0076}
+{"section": "gemm", "model": "7B", "shape": "o", "k": 4096, "n": 4096, "path": "int8_b32", "pass_": "wgrad", "config": 3, "tflops": 4.49, "rel_err": 0.0076}
+{"section": "gemm", "model": "7B", "shape": "o", "k": 4096, "n": 4096, "path": "int4_b32", "pass_": "fwd", "tflops": 34.76, "rel_err": 0.1376}
+{"section": "gemm", "model": "7B", "shape": "o", "k": 4096, "n": 4096, "path": "int4_b32", "pass_": "dgrad", "tflops": 33.82, "rel_err": 0.1376}
+{"section": "gemm", "model": "7B", "shape": "gate_up", "k": 4096, "n": 22016, "path": "int8_b32", "pass_": "fwd", "config": 3, "tflops": 16.32, "rel_err": 0.0076}
+{"section": "gemm", "model": "7B", "shape": "gate_up", "k": 4096, "n": 22016, "path": "int8_b32", "pass_": "dgrad", "config": 1, "tflops": 17.01, "rel_err": 0.0076}
+{"section": "gemm", "model": "7B", "shape": "gate_up", "k": 4096, "n": 22016, "path": "int8_b32", "pass_": "wgrad", "config": 3, "tflops": 11.15, "rel_err": 0.0076}
+{"section": "gemm", "model": "7B", "shape": "gate_up", "k": 4096, "n": 22016, "path": "int4_b32", "pass_": "fwd", "tflops": 34.92, "rel_err": 0.1376}
+{"section": "gemm", "model": "7B", "shape": "gate_up", "k": 4096, "n": 22016, "path": "int4_b32", "pass_": "dgrad", "tflops": 29.64, "rel_err": 0.1376}
+{"section": "gemm", "model": "7B", "shape": "down", "k": 11008, "n": 4096, "path": "int8_b32", "pass_": "fwd", "config": 1, "tflops": 17.71, "rel_err": 0.0076}
+{"section": "gemm", "model": "7B", "shape": "down", "k": 11008, "n": 4096, "path": "int8_b32", "pass_": "dgrad", "config": 3, "tflops": 16.24, "rel_err": 0.0076}
+{"section": "gemm", "model": "7B", "shape": "down", "k": 11008, "n": 4096, "path": "int8_b32", "pass_": "wgrad", "config": 3, "tflops": 10.0, "rel_err": 0.0076}
+{"section": "gemm", "model": "7B", "shape": "down", "k": 11008, "n": 4096, "path": "int4_b32", "pass_": "fwd", "tflops": 33.16, "rel_err": 0.1376}
+{"section": "gemm", "model": "7B", "shape": "down", "k": 11008, "n": 4096, "path": "int4_b32", "pass_": "dgrad", "tflops": 34.72, "rel_err": 0.1375}
+{"section": "attention", "L": 2048, "path": "torch_sdpa_fp16", "pass_": "fwd causal", "tflops": 2.36}
+{"section": "attention", "L": 2048, "path": "torch_sdpa_fp16", "pass_": "fwd+bwd causal", "tflops": 3.22}
+{"section": "attention", "L": 2048, "path": "fused_fp16_fp16", "pass_": "fwd full", "tflops": 9.08, "rel_err": 0.0004}
+{"section": "attention", "L": 2048, "path": "fused_fp16_fp16", "pass_": "fwd block-causal", "tflops": 7.72, "computed_vs_causal": 0.064}
+{"section": "attention", "L": 2048, "path": "fused_int8_u8", "pass_": "fwd full", "tflops": 9.57, "rel_err": 0.0123}
+{"section": "attention", "L": 2048, "path": "fused_int8_u8", "pass_": "fwd block-causal", "tflops": 6.27, "computed_vs_causal": 0.066}
+{"section": "attention", "L": 2048, "path": "fused_int4_u8", "pass_": "fwd full", "tflops": 8.84, "rel_err": 0.1699}
+{"section": "attention", "L": 2048, "path": "fused_int4_u8", "pass_": "fwd block-causal", "tflops": 5.41, "computed_vs_causal": 0.066}
+{"section": "attention", "L": 4096, "path": "torch_sdpa_fp16", "pass_": "fwd causal", "tflops": 2.22}
+{"section": "attention", "L": 4096, "path": "torch_sdpa_fp16", "pass_": "fwd+bwd causal", "tflops": 3.23}
+{"section": "attention", "L": 4096, "path": "fused_fp16_fp16", "pass_": "fwd full", "tflops": 9.57, "rel_err": 0.0004}
+{"section": "attention", "L": 4096, "path": "fused_fp16_fp16", "pass_": "fwd block-causal", "tflops": 8.83, "computed_vs_causal": 0.063}
+{"section": "attention", "L": 4096, "path": "fused_int8_u8", "pass_": "fwd full", "tflops": 12.44, "rel_err": 0.0124}
+{"section": "attention", "L": 4096, "path": "fused_int8_u8", "pass_": "fwd block-causal", "tflops": 9.48, "computed_vs_causal": 0.064}
+{"section": "attention", "L": 4096, "path": "fused_int4_u8", "pass_": "fwd full", "tflops": 12.88, "rel_err": 0.1715}
+{"section": "attention", "L": 4096, "path": "fused_int4_u8", "pass_": "fwd block-causal", "tflops": 8.98, "computed_vs_causal": 0.064}
+{"section": "attention", "L": 8192, "path": "torch_sdpa_fp16", "pass_": "fwd causal", "tflops": 2.41}
+{"section": "attention", "L": 8192, "path": "torch_sdpa_fp16", "pass_": "fwd+bwd causal", "tflops": 3.85}
+{"section": "attention", "L": 8192, "path": "fused_fp16_fp16", "pass_": "fwd full", "tflops": 10.05, "rel_err": 0.0004}
+{"section": "attention", "L": 8192, "path": "fused_fp16_fp16", "pass_": "fwd block-causal", "tflops": 9.51, "computed_vs_causal": 0.063}
+{"section": "attention", "L": 8192, "path": "fused_int8_u8", "pass_": "fwd full", "tflops": 14.39, "rel_err": 0.0124}
+{"section": "attention", "L": 8192, "path": "fused_int8_u8", "pass_": "fwd block-causal", "tflops": 12.08, "computed_vs_causal": 0.063}
+{"section": "attention", "L": 8192, "path": "fused_int4_u8", "pass_": "fwd full", "tflops": 15.54, "rel_err": 0.1725}
+{"section": "attention", "L": 8192, "path": "fused_int4_u8", "pass_": "fwd block-causal", "tflops": 12.47, "computed_vs_causal": 0.063}
+{"section": "memory", "op": "device copy", "gbps": 761.4}
+{"section": "memory", "op": "AdamW fp32 (foreach)", "ms_per_1b_params": 153.9, "gbps": 181.9}
+{"section": "memory", "op": "AdamW fp32 (fused)", "ms_per_1b_params": 52.8, "gbps": 530.6}
+{"section": "pcie", "op": "H2D pinned 256 MiB", "gbps": 7.18}
+{"section": "pcie", "op": "D2H pinned 256 MiB", "gbps": 7.26}
+[0mdirenv: loading /media/luna/work/tinker/ComfyUI/.envrc
+[0mdirenv: using flake ./nix
+[0mdirenv: nix-direnv: Using cached dev shell
+ComfyUI ROCm 7.2.53211 shell (gfx906)
+hipcc: /nix/store/1rky1688rl9nahjqvkj54w7s75776nyc-clr-7.2.3/bin/hipcc
+HIP version: 7.2.53211-9999
+nixpkgs-AMD clang version 22.0.0 (https://github.com/ROCm/llvm-project/tree/rocm-7.2.3 rocm-7.2.3)
+Target: x86_64-unknown-linux-gnu
+Thread model: posix
+InstalledDir: /nix/store/ly700gf82nzmd5y8cyz14107d0ql3fib-rocm-toolchain/bin
+Configuration file: /nix/store/ly700gf82nzmd5y8cyz14107d0ql3fib-rocm-toolchain/bin/x86_64-unknown-linux-gnu.cfg
+
+[37mROCk module is loaded[0m
+=====================    
+HSA System Attributes    
+=====================    
+Runtime Version:         1.18
+Runtime Ext Version:     1.15
+System Timestamp Freq.:  1000.000000MHz
+Sig. Max Wait Duration:  18446744073709551615 (0xFFFFFFFFFFFFFFFF) (timestamp count)
+Machine Model:           LARGE                              
+System Endianness:       LITTLE                             
+
+ROCM_ROOT        = /nix/store/1rky1688rl9nahjqvkj54w7s75776nyc-clr-7.2.3
+HIPBLASLT_ROOT   = /nix/store/crybjwiwfklkrzcb7nhlysz686iabdkm-hipblaslt-7.2.3
+MIOPEN_ROOT      = /nix/store/2gaa43dswxr4vx1qm3fvx0zq8ispbkrg-miopen-7.2.3
+CPU BLAS (LP64)  = /nix/store/fjbvyzjcji3xyzj8n8q7jwfd6qgflii3-openblas-0.3.33/lib
+
+Ready.
+[92mSuccessfully preprocessed all matching files.[0m
+[92mSuccessfully preprocessed all matching files.[0m
+[W1011 21:18:39.870182149 HIPCachingAllocator.cpp:3937] memory allocation failed with OOM on device 0 while trying to allocate 4294967296 bytes (free: 125829120, total: 17163091968).
