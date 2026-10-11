@@ -67,12 +67,26 @@ dq: S = Q.K, dP = dO.V (over d), dS = P (dP - delta), dQ += dS.K^T (over k) * sc
   `r < L ? load : zero` had become a flat load through a scratch copy of zero (32 B/lane);
   loads now clamp the row and select the value (the inference kernel's idiom).
 
-### Next: dkdv v2 (proposed, not built)
+- **v2 backward (2026-10-11, built, verified, same error figures)**: dkdv and dq keep
+  the stationary operand (K, V / Q, dO rows) in registers, each row split over the 8
+  lanes of an aligned group (lane sub holds 16-byte chunks sub and sub + 8: the 8
+  lanes' LDS reads of a row hit disjoint banks). Scores are per-lane partial dots
+  finished by `reduce_scatter8` (wave64.hpp: row_half_mirror, quad xor2, quad xor1;
+  each lane ends owning a different query's / key's full sum, so exp and dS run once
+  per pair). The other side accumulates the lane's own 16 channels with dot2 over
+  pairs from a swizzled transposed tile (`t_row`, +16 B per 8 rows, monotone: the
+  first, wrapping version overlapped rows and put dK/dV 12% off -- the gate caught it).
+  512-thread workgroups: LDS allows one per CU, so the workgroup size is what gives 2
+  waves/SIMD. Outer chunk loops stay rolled (unrolled: 152 B/lane of spills at the
+  128-VGPR cap).
+  L 4096, 32/8 heads: dkdv 64.7 -> 37.0 ms (7.4 TFLOPS, 116 VGPRs), dq 29.9 -> 26.4
+  (7.8, 93 VGPRs); fwd+bwd 112 -> 82 ms (SDPA 135). Blocks: 4B full 236 ms, 4B LoRA
+  int4 147, 8B full 560, 8B LoRA int4 210.
 
-dkdv is 58% of the backward and runs at 1 wave/SIMD, LDS-latency bound (~16% of dot2
-peak). Proposed: K and V rows resident in registers, each row split across 8 lanes
-(16 channels = 2 uint4 per lane per tensor); S^T and dP^T as per-lane partial dots
-finished by DPP (quad_perm xor1/xor2, then row_half_mirror for the 8-lane sum); dV/dK
-accumulate the lane's own 16 channels with dot2 over query pairs from Q^T / dO^T in
-LDS, read as 16-lane broadcasts. Frees K/V LDS (17 KB) and cuts VGPRs toward 2
-waves/SIMD. Reduction overhead ~3 VALU per 8 dot2.
+### Next (not built)
+
+- fwd v2 with the same layout (Q in registers, row max/sum over the 8 lanes by DPP;
+  now 1 wave/SIMD at 210 VGPRs, 16.5 ms at L 4096).
+- All kernels sit at ~1/3 of dot2 peak (24 TFLOPS); attention is ~78 of the 147 ms
+  4B LoRA-int4 block, the linears the rest (fp16 wgrad layouts as slow as 2.9 TFLOPS
+  in train_bench).

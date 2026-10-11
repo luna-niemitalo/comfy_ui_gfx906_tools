@@ -41,19 +41,33 @@ __device__ __forceinline__ void wave_sync_lds() {
 // writes of a lane group hit consecutive dwords and a wave reads 64-byte row
 // segments. Split in load (to registers) and store (to LDS) so a kernel can
 // load the next tile while it computes on this one: at 1 wave per SIMD
-// nothing else hides global latency.
-template <int R> struct Pairs {
-    static_assert(R * 8 % NT == 0, "items must divide over the workgroup");
-    static constexpr int N = R * 8 / NT;
+// nothing else hides global latency. THREADS = the workgroup size; with fewer
+// items than threads the rest idle.
+//
+// Swizzled transposed layout (SWZ, t_row): channel row d starts at d * TRS +
+// (d >> 3) * 16. Lanes that read rows 8 apart (dkdv's 8 lanes of a key) then hit
+// disjoint banks: 8 * TRS is a multiple of 128 B for any 16-byte TRS, and the
+// extra 16 B per 8-row group moves each group 4 banks on. Monotone on purpose:
+// a wrapping offset ((d >> 3) & 7) let a group's last row overlap the next
+// group's first row (dK/dV 12% off).
+template <int TRS> constexpr int t_bytes_swz() { return TD * TRS + (TD / 8 - 1) * 16; }
+template <int TRS, bool SWZ> __device__ __forceinline__ int t_row(int d) {
+    return d * TRS + (SWZ ? (d >> 3) * 16 : 0);
+}
+
+template <int R, int THREADS = NT> struct Pairs {
+    static constexpr int ITEMS = R * 8;
+    static constexpr int N = (ITEMS + THREADS - 1) / THREADS;
     uint4 a[N], b[N];  // indices are unrolled constants: registers, not scratch
 };
 
-template <int R>
-__device__ __forceinline__ void load_pairs(const _Float16* g, long long sl, int row0, int L, Pairs<R>& p) {
+template <int R, int THREADS>
+__device__ __forceinline__ void load_pairs(const _Float16* g, long long sl, int row0, int L, Pairs<R, THREADS>& p) {
     const uint4 zero = make_uint4(0, 0, 0, 0);
 #pragma unroll
-    for (int n = 0; n < Pairs<R>::N; n++) {
-        const int i = threadIdx.x + n * NT, rp = i % (R / 2), c = i / (R / 2), r = row0 + 2 * rp;
+    for (int n = 0; n < Pairs<R, THREADS>::N; n++) {
+        const int i = threadIdx.x + n * THREADS, rp = i % (R / 2), c = i / (R / 2), r = row0 + 2 * rp;
+        if (Pairs<R, THREADS>::ITEMS % THREADS != 0 && i >= Pairs<R, THREADS>::ITEMS) break;
         // Load from a clamped row, then select: `r < L ? load : zero` became a
         // select between the global address and a scratch copy of zero, i.e.
         // flat loads plus 32 B/lane of scratch.
@@ -64,11 +78,12 @@ __device__ __forceinline__ void load_pairs(const _Float16* g, long long sl, int 
     }
 }
 
-template <int R, int TRS, bool NAT, bool TR>
-__device__ __forceinline__ void store_pairs(const Pairs<R>& p, uint8_t* nat, uint8_t* T) {
+template <int R, int TRS, bool NAT, bool TR, bool SWZ = false, int THREADS = NT>
+__device__ __forceinline__ void store_pairs(const Pairs<R, THREADS>& p, uint8_t* nat, uint8_t* T) {
 #pragma unroll
-    for (int n = 0; n < Pairs<R>::N; n++) {
-        const int i = threadIdx.x + n * NT, rp = i % (R / 2), c = i / (R / 2);
+    for (int n = 0; n < Pairs<R, THREADS>::N; n++) {
+        const int i = threadIdx.x + n * THREADS, rp = i % (R / 2), c = i / (R / 2);
+        if (Pairs<R, THREADS>::ITEMS % THREADS != 0 && i >= Pairs<R, THREADS>::ITEMS) break;
         const uint4 a = p.a[n], b = p.b[n];
         if constexpr (NAT) {
             *(uint4*)(nat + (2 * rp) * RS_N + c * 16) = a;
@@ -76,7 +91,7 @@ __device__ __forceinline__ void store_pairs(const Pairs<R>& p, uint8_t* nat, uin
         }
         if constexpr (TR) {
             // fields written out: a local array here went to scratch (32 B/lane)
-            uint8_t* col = T + c * 8 * TRS + rp * 4;
+            uint8_t* col = T + t_row<TRS, SWZ>(c * 8) + rp * 4;  // rows c*8 .. c*8+7 share one swizzle
             *(uint32_t*)(col + 0 * TRS) = pair_lo(a.x, b.x);
             *(uint32_t*)(col + 1 * TRS) = pair_hi(a.x, b.x);
             *(uint32_t*)(col + 2 * TRS) = pair_lo(a.y, b.y);
@@ -215,39 +230,50 @@ __global__ void __launch_bounds__(NT) attn_bwd_delta(const _Float16* __restrict_
     if (tx == 0) Delta[r] = sum;
 }
 
-// ---- backward dK, dV: 32 keys per workgroup, 32-query tiles, all G query heads of the KV head ----
-// LDS: K, V, Q, dO natural 4 x 8,704; Q^T, dO^T 2 x 10,240; P^T, dS^T 2 x 2,560 = 60,416 B (+ 256).
-__global__ void __launch_bounds__(NT) attn_bwd_dkdv(const _Float16* __restrict__ Q, Str qs,
+// ---- backward dK, dV: 64 keys per workgroup, 32-query tiles, all G query heads of the KV head ----
+// Each key's K and V rows stay in registers, split over the 8 lanes of an aligned
+// lane group: sub = lane % 8 holds 16-byte chunks sub and sub + 8 of the row, so
+// the 8 lanes' reads of one Q / dO row hit disjoint LDS banks. S^T and dP^T are
+// per-lane partial dots over those 16 channels finished by reduce_scatter8 (DPP):
+// each lane then owns the full scores of a different query, and exp / dS run
+// once per (key, query). dV and dK: each lane accumulates its own 16 channels,
+// dot2 over query pairs from the swizzled Q^T / dO^T.
+// 512 threads: LDS allows one workgroup per CU, so the workgroup size sets the
+// waves per SIMD (v1: 256 threads, 1 wave/SIMD, 4.3 TFLOPS).
+// LDS: Q, dO natural 2 x 8,704; Q^T, dO^T 2 x 10,480; P^T, dS^T 2 x 5,120 = 48,608 B (+ 256).
+constexpr int KV_NT = 512;
+__global__ void __launch_bounds__(KV_NT) attn_bwd_dkdv(const _Float16* __restrict__ Q, Str qs,
                                                     const _Float16* __restrict__ K, Str ks,
                                                     const _Float16* __restrict__ V, Str vs,
                                                     const _Float16* __restrict__ dO, Str dos,
                                                     const float* __restrict__ LSE, const float* __restrict__ Delta,
                                                     _Float16* __restrict__ dK, Str dks, _Float16* __restrict__ dV, Str dvs,
                                                     int H, int KVH, int L, float scale_log2, float scale, int causal) {
-    constexpr int BN = 32, BM = 32, RA = BN / TY, RB = BM / 16, DPT = 8;
+    constexpr int BN = KV_NT / 8, BM = 32;
     constexpr int TRS = BM * 2 + 16;
-    __shared__ __attribute__((aligned(16))) uint8_t Ks[BN * RS_N];
-    __shared__ __attribute__((aligned(16))) uint8_t Vs[BN * RS_N];
     __shared__ __attribute__((aligned(16))) uint8_t Qs[BM * RS_N];
     __shared__ __attribute__((aligned(16))) uint8_t dOs[BM * RS_N];
-    __shared__ __attribute__((aligned(16))) uint8_t QT[TD * TRS];
-    __shared__ __attribute__((aligned(16))) uint8_t dOT[TD * TRS];
+    __shared__ __attribute__((aligned(16))) uint8_t QT[t_bytes_swz<TRS>()];
+    __shared__ __attribute__((aligned(16))) uint8_t dOT[t_bytes_swz<TRS>()];
     __shared__ __attribute__((aligned(16))) uint8_t PT[BN * TRS];
     __shared__ __attribute__((aligned(16))) uint8_t dST[BN * TRS];
     __shared__ float lse_s[BM], delta_s[BM];
 
     const int b = blockIdx.z, kvh = blockIdx.y, k0 = blockIdx.x * BN, G = H / KVH;
-    const int tid = threadIdx.x, tx = tid % 16, ty = tid / 16;
-    stage<BN, 0, true, false>(K + b * ks.b + kvh * ks.h, ks.l, k0, L, Ks, nullptr);
-    stage<BN, 0, true, false>(V + b * vs.b + kvh * vs.h, vs.l, k0, L, Vs, nullptr);
+    const int tid = threadIdx.x, sub = tid % 8, kl = tid / 8, key = k0 + kl;
+    // rows past L load row L - 1; their scores are masked below
+    const uint4* krow = (const uint4*)(K + b * ks.b + (long long)min(key, L - 1) * ks.l + kvh * ks.h);
+    const uint4* vrow = (const uint4*)(V + b * vs.b + (long long)min(key, L - 1) * vs.l + kvh * vs.h);
+    const uint4 k_lo = krow[sub], k_hi = krow[sub + 8], v_lo = vrow[sub], v_hi = vrow[sub + 8];
 
-    float dk[RA][DPT] = {}, dv[RA][DPT] = {};
+    // [hb][r]: channel 64 * hb + 8 * sub + r
+    float dk[2][8] = {}, dv[2][8] = {};
     // causal: query tiles before the block's first key see none of its keys
     const int i_begin = causal ? (k0 / BM) * BM : 0;
     const int n_qt = (L - i_begin + BM - 1) / BM;
     // one step = one query tile of one query head of the group, flattened so the
     // prefetch crosses head boundaries too
-    Pairs<BM> q_next, do_next;
+    Pairs<BM, KV_NT> q_next, do_next;
     float lse_next = 0.0f, delta_next = 0.0f;
     auto load_step = [&](int step) {
         const int h = kvh * G + step / n_qt, i0 = i_begin + (step % n_qt) * BM;
@@ -261,8 +287,8 @@ __global__ void __launch_bounds__(NT) attn_bwd_dkdv(const _Float16* __restrict__
     for (int step = 0; step < G * n_qt; step++) {
         const int i0 = i_begin + (step % n_qt) * BM;
         __syncthreads();  // every wave is done with the previous tile
-        store_pairs<BM, TRS, true, true>(q_next, Qs, QT);
-        store_pairs<BM, TRS, true, true>(do_next, dOs, dOT);
+        store_pairs<BM, TRS, true, true, true>(q_next, Qs, QT);
+        store_pairs<BM, TRS, true, true, true>(do_next, dOs, dOT);
         if (tid < BM) {
             lse_s[tid] = lse_next;
             delta_s[tid] = delta_next;
@@ -270,111 +296,137 @@ __global__ void __launch_bounds__(NT) attn_bwd_dkdv(const _Float16* __restrict__
         __syncthreads();
         if (step + 1 < G * n_qt) load_step(step + 1);
 
-        float st[RA][RB] = {}, dpt[RA][RB] = {};
-        dot_tile<RA, RB, TD * 2 / 16>(Ks, RS_N, Qs, RS_N, ty, tx, st);
-        dot_tile<RA, RB, TD * 2 / 16>(Vs, RS_N, dOs, RS_N, ty, tx, dpt);
+        // outer chunk loops stay rolled: unrolled, the hoisted LDS loads spilled
+        // 152 B/lane at the 128-VGPR cap of 2 waves/SIMD
+#pragma unroll 1
+        for (int c = 0; c < BM / 8; c++) {
+            float s[8], dp[8];
 #pragma unroll
-        for (int a = 0; a < RA; a++) {
-            const int key = k0 + ty + TY * a;
-#pragma unroll
-            for (int c = 0; c < RB; c++) {
-                const int qi = tx + 16 * c, q = i0 + qi;
-                const bool masked = key >= L || q >= L || (causal && q < key);
-                const float p = masked ? 0.0f : exp2f(st[a][c] * scale_log2 - lse_s[qi]);
-                const float ds = p * (dpt[a][c] - delta_s[qi]);
-                *(_Float16*)(PT + (ty + TY * a) * TRS + qi * 2) = (_Float16)p;
-                *(_Float16*)(dST + (ty + TY * a) * TRS + qi * 2) = (_Float16)ds;
+            for (int j = 0; j < 8; j++) {
+                const uint8_t* q_row = Qs + (8 * c + j) * RS_N;
+                const uint8_t* do_row = dOs + (8 * c + j) * RS_N;
+                s[j] = dot8h(k_hi, *(const uint4*)(q_row + (sub + 8) * 16),
+                             dot8h(k_lo, *(const uint4*)(q_row + sub * 16), 0.0f));
+                dp[j] = dot8h(v_hi, *(const uint4*)(do_row + (sub + 8) * 16),
+                              dot8h(v_lo, *(const uint4*)(do_row + sub * 16), 0.0f));
             }
+            const float s_own = reduce_scatter8(s, sub), dp_own = reduce_scatter8(dp, sub);
+            const int qi = 8 * c + sub, q = i0 + qi;
+            const bool masked = key >= L || q >= L || (causal && q < key);
+            const float p = masked ? 0.0f : exp2f(s_own * scale_log2 - lse_s[qi]);
+            *(_Float16*)(PT + kl * TRS + qi * 2) = (_Float16)p;
+            *(_Float16*)(dST + kl * TRS + qi * 2) = (_Float16)(p * (dp_own - delta_s[qi]));
         }
-        wave_sync_lds();
-        dot_tile<RA, DPT, BM * 2 / 16>(PT, TRS, dOT, TRS, ty, tx, dv);
-        dot_tile<RA, DPT, BM * 2 / 16>(dST, TRS, QT, TRS, ty, tx, dk);
+        wave_sync_lds();  // a key's P^T / dS^T row is written and read by its own 8 lanes
+#pragma unroll 1
+        for (int c = 0; c < BM * 2 / 16; c++) {
+            const uint4 pv = *(const uint4*)(PT + kl * TRS + c * 16);
+            const uint4 dsv = *(const uint4*)(dST + kl * TRS + c * 16);
+#pragma unroll
+            for (int hb = 0; hb < 2; hb++)
+#pragma unroll
+                for (int r = 0; r < 8; r++) {
+                    const int off = t_row<TRS, true>(64 * hb + 8 * sub + r) + c * 16;
+                    dv[hb][r] = dot8h(pv, *(const uint4*)(dOT + off), dv[hb][r]);
+                    dk[hb][r] = dot8h(dsv, *(const uint4*)(QT + off), dk[hb][r]);
+                }
+        }
     }
+    if (key >= L) return;
+    uint4* dk_row = (uint4*)(dK + b * dks.b + (long long)key * dks.l + kvh * dks.h);
+    uint4* dv_row = (uint4*)(dV + b * dvs.b + (long long)key * dvs.l + kvh * dvs.h);
 #pragma unroll
-    for (int a = 0; a < RA; a++) {
-        const int key = k0 + ty + TY * a;
-        if (key >= L) continue;
-        _Float16* dk_dst = dK + b * dks.b + key * dks.l + kvh * dks.h;
-        _Float16* dv_dst = dV + b * dvs.b + key * dvs.l + kvh * dvs.h;
+    for (int hb = 0; hb < 2; hb++) {
 #pragma unroll
-        for (int j = 0; j < DPT; j++) {
-            dk_dst[tx + 16 * j] = (_Float16)(dk[a][j] * scale);
-            dv_dst[tx + 16 * j] = (_Float16)dv[a][j];
-        }
+        for (int r = 0; r < 8; r++) dk[hb][r] *= scale;
+        dk_row[sub + 8 * hb] = pack8h(dk[hb]);
+        dv_row[sub + 8 * hb] = pack8h(dv[hb]);
     }
 }
 
-// ---- backward dQ: 32 query rows per workgroup, 32-key tiles ----
-// LDS: Q, dO, K, V natural 4 x 8,704; K^T 10,240; dS 2,560 = 47,616 B.
-__global__ void __launch_bounds__(NT) attn_bwd_dq(const _Float16* __restrict__ Q, Str qs,
+// ---- backward dQ: 64 query rows per workgroup (512 threads), 32-key tiles ----
+// dkdv's layout with the roles swapped: each query's Q and dO rows in registers
+// over 8 lanes (chunks sub, sub + 8), scores by reduce_scatter8, dQ over key pairs
+// from the swizzled K^T. A lane's query row is fixed: lse / delta are scalars.
+// LDS: K, V natural 2 x 8,704; K^T 10,480; dS 5,120 = 33,008 B.
+__global__ void __launch_bounds__(KV_NT) attn_bwd_dq(const _Float16* __restrict__ Q, Str qs,
                                                   const _Float16* __restrict__ K, Str ks,
                                                   const _Float16* __restrict__ V, Str vs,
                                                   const _Float16* __restrict__ dO, Str dos,
                                                   const float* __restrict__ LSE, const float* __restrict__ Delta,
                                                   _Float16* __restrict__ dQ, Str dqs, int H, int KVH, int L,
                                                   float scale_log2, float scale, int causal) {
-    constexpr int BM = 32, BN = 32, RA = BM / TY, RB = BN / 16, DPT = 8;
+    constexpr int BM = KV_NT / 8, BN = 32;
     constexpr int TRS = BN * 2 + 16;
-    __shared__ __attribute__((aligned(16))) uint8_t Qs[BM * RS_N];
-    __shared__ __attribute__((aligned(16))) uint8_t dOs[BM * RS_N];
     __shared__ __attribute__((aligned(16))) uint8_t Ks[BN * RS_N];
     __shared__ __attribute__((aligned(16))) uint8_t Vs[BN * RS_N];
-    __shared__ __attribute__((aligned(16))) uint8_t KT[TD * TRS];
+    __shared__ __attribute__((aligned(16))) uint8_t KT[t_bytes_swz<TRS>()];
     __shared__ __attribute__((aligned(16))) uint8_t dSs[BM * TRS];
 
     const int b = blockIdx.z, h = blockIdx.y, q0 = blockIdx.x * BM, kvh = h / (H / KVH);
-    const int tid = threadIdx.x, tx = tid % 16, ty = tid / 16;
-    stage<BM, 0, true, false>(Q + b * qs.b + h * qs.h, qs.l, q0, L, Qs, nullptr);
-    stage<BM, 0, true, false>(dO + b * dos.b + h * dos.h, dos.l, q0, L, dOs, nullptr);
+    const int tid = threadIdx.x, sub = tid % 8, ql = tid / 8, row = q0 + ql;
+    // rows past L read row L - 1; their scores are masked below
+    const long long r_in = min(row, L - 1);
+    const uint4* q_row = (const uint4*)(Q + b * qs.b + r_in * qs.l + h * qs.h);
+    const uint4* do_row = (const uint4*)(dO + b * dos.b + r_in * dos.l + h * dos.h);
+    const uint4 q_lo = q_row[sub], q_hi = q_row[sub + 8], do_lo = do_row[sub], do_hi = do_row[sub + 8];
+    const float lse = LSE[((long long)b * H + h) * L + r_in], delta = Delta[((long long)b * H + h) * L + r_in];
     const _Float16* Kg = K + b * ks.b + kvh * ks.h;
     const _Float16* Vg = V + b * vs.b + kvh * vs.h;
 
-    float lse_r[RA], delta_r[RA];
-#pragma unroll
-    for (int a = 0; a < RA; a++) {
-        const int row = q0 + ty + TY * a;
-        lse_r[a] = row < L ? LSE[((long long)b * H + h) * L + row] : 0.0f;
-        delta_r[a] = row < L ? Delta[((long long)b * H + h) * L + row] : 0.0f;
-    }
-    float dq[RA][DPT] = {};
+    // [hb][r]: channel 64 * hb + 8 * sub + r
+    float dq[2][8] = {};
     const int all_tiles = (L + BN - 1) / BN;
     const int n_tiles = causal ? min(all_tiles, (q0 + BM - 1) / BN + 1) : all_tiles;
-    Pairs<BN> k_next, v_next;
+    Pairs<BN, KV_NT> k_next, v_next;
     load_pairs<BN>(Kg, ks.l, 0, L, k_next);
     load_pairs<BN>(Vg, vs.l, 0, L, v_next);
     for (int t = 0; t < n_tiles; t++) {
         const int k0 = t * BN;
         __syncthreads();  // every wave is done with the previous tile
-        store_pairs<BN, TRS, true, true>(k_next, Ks, KT);
+        store_pairs<BN, TRS, true, true, true>(k_next, Ks, KT);
         store_pairs<BN, 0, true, false>(v_next, Vs, nullptr);
         __syncthreads();
         if (t + 1 < n_tiles) load_pairs<BN>(Kg, ks.l, k0 + BN, L, k_next);
         if (t + 1 < n_tiles) load_pairs<BN>(Vg, vs.l, k0 + BN, L, v_next);
 
-        float s[RA][RB] = {}, dp[RA][RB] = {};
-        dot_tile<RA, RB, TD * 2 / 16>(Qs, RS_N, Ks, RS_N, ty, tx, s);
-        dot_tile<RA, RB, TD * 2 / 16>(dOs, RS_N, Vs, RS_N, ty, tx, dp);
+#pragma unroll 1
+        for (int c = 0; c < BN / 8; c++) {
+            float s[8], dp[8];
 #pragma unroll
-        for (int a = 0; a < RA; a++) {
-            const int row = q0 + ty + TY * a;
-#pragma unroll
-            for (int c = 0; c < RB; c++) {
-                const int kj = tx + 16 * c, key = k0 + kj;
-                const bool masked = key >= L || row >= L || (causal && key > row);
-                const float p = masked ? 0.0f : exp2f(s[a][c] * scale_log2 - lse_r[a]);
-                *(_Float16*)(dSs + (ty + TY * a) * TRS + kj * 2) = (_Float16)(p * (dp[a][c] - delta_r[a]));
+            for (int j = 0; j < 8; j++) {
+                const uint8_t* k_row = Ks + (8 * c + j) * RS_N;
+                const uint8_t* v_row = Vs + (8 * c + j) * RS_N;
+                s[j] = dot8h(q_hi, *(const uint4*)(k_row + (sub + 8) * 16),
+                             dot8h(q_lo, *(const uint4*)(k_row + sub * 16), 0.0f));
+                dp[j] = dot8h(do_hi, *(const uint4*)(v_row + (sub + 8) * 16),
+                              dot8h(do_lo, *(const uint4*)(v_row + sub * 16), 0.0f));
             }
+            const float s_own = reduce_scatter8(s, sub), dp_own = reduce_scatter8(dp, sub);
+            const int kj = 8 * c + sub, key = k0 + kj;
+            const bool masked = key >= L || row >= L || (causal && key > row);
+            const float p = masked ? 0.0f : exp2f(s_own * scale_log2 - lse);
+            *(_Float16*)(dSs + ql * TRS + kj * 2) = (_Float16)(p * (dp_own - delta));
         }
-        wave_sync_lds();
-        dot_tile<RA, DPT, BN * 2 / 16>(dSs, TRS, KT, TRS, ty, tx, dq);
+        wave_sync_lds();  // a query's dS row is written and read by its own 8 lanes
+#pragma unroll 1
+        for (int c = 0; c < BN * 2 / 16; c++) {
+            const uint4 dsv = *(const uint4*)(dSs + ql * TRS + c * 16);
+#pragma unroll
+            for (int hb = 0; hb < 2; hb++)
+#pragma unroll
+                for (int r = 0; r < 8; r++)
+                    dq[hb][r] = dot8h(dsv, *(const uint4*)(KT + t_row<TRS, true>(64 * hb + 8 * sub + r) + c * 16),
+                                      dq[hb][r]);
+        }
     }
+    if (row >= L) return;
+    uint4* dq_row = (uint4*)(dQ + b * dqs.b + (long long)row * dqs.l + h * dqs.h);
 #pragma unroll
-    for (int a = 0; a < RA; a++) {
-        const int row = q0 + ty + TY * a;
-        if (row >= L) continue;
-        _Float16* dst = dQ + b * dqs.b + row * dqs.l + h * dqs.h;
+    for (int hb = 0; hb < 2; hb++) {
 #pragma unroll
-        for (int j = 0; j < DPT; j++) dst[tx + 16 * j] = (_Float16)(dq[a][j] * scale);
+        for (int r = 0; r < 8; r++) dq[hb][r] *= scale;
+        dq_row[sub + 8 * hb] = pack8h(dq[hb]);
     }
 }
 
@@ -397,11 +449,11 @@ void attn_train_bwd_dispatch(const void* q, Str qs, const void* k, Str ks, const
         attn_bwd_delta<<<(rows + TY - 1) / TY, NT, 0, stream>>>((const _Float16*)o, os, (const _Float16*)dout, dos,
                                                                 delta, H, L, rows);
     if (stages & BWD_DKDV)
-        attn_bwd_dkdv<<<dim3((L + 31) / 32, KVH, B), NT, 0, stream>>>(
+        attn_bwd_dkdv<<<dim3((L + KV_NT / 8 - 1) / (KV_NT / 8), KVH, B), KV_NT, 0, stream>>>(
         (const _Float16*)q, qs, (const _Float16*)k, ks, (const _Float16*)v, vs, (const _Float16*)dout, dos, lse, delta,
         (_Float16*)dk, dks, (_Float16*)dv, dvs, H, KVH, L, scale * LOG2E, scale, causal);
     if (stages & BWD_DQ)
-        attn_bwd_dq<<<dim3((L + 31) / 32, H, B), NT, 0, stream>>>(
+        attn_bwd_dq<<<dim3((L + KV_NT / 8 - 1) / (KV_NT / 8), H, B), KV_NT, 0, stream>>>(
         (const _Float16*)q, qs, (const _Float16*)k, ks, (const _Float16*)v, vs, (const _Float16*)dout, dos, lse, delta,
         (_Float16*)dq, dqs, H, KVH, L, scale * LOG2E, scale, causal);
 }
