@@ -3,6 +3,8 @@
 #include <c10/cuda/CUDAGuard.h>
 #include <hip/hip_runtime.h>
 
+#include "attention_train.hpp"
+
 void quantize_int4_dispatch(int dtype, const void* x, void* packed, float* scale, long total_blocks, hipStream_t stream);
 void gemm_dispatch(int dtype, const void* A, const float* As, const void* B, const float* Bs, const void* bias,
                    void* C, int M, int N, int n_blocks, int splits, float* workspace, hipStream_t stream);
@@ -243,6 +245,66 @@ torch::Tensor conv_int8(torch::Tensor x, torch::Tensor x_scale, torch::Tensor W,
     return out;
 }
 
+// Training attention (attention_train.hip). IN: q [B, L, H, 128], k/v [B, L, KVH, 128],
+// fp16, any batch/token/head strides; the kernels read 16-byte chunks, so channels
+// must be contiguous and every stride and the base 16-byte aligned (critical: a
+// misaligned row is a wrong read, not a crash).
+static Str head_strides(const char* name, const torch::Tensor& t, int64_t B, int64_t L, int64_t heads) {
+    TORCH_CHECK(t.is_cuda() && t.scalar_type() == torch::kFloat16 && t.dim() == 4,
+                name, " must be a device fp16 [B, L, heads, 128] tensor, got ", t.scalar_type(), " ", t.sizes());
+    TORCH_CHECK(t.size(0) == B && t.size(1) == L && (heads < 0 || t.size(2) == heads) && t.size(3) == 128,
+                name, " must be [", B, ", ", L, ", ", heads < 0 ? "KVH" : std::to_string(heads), ", 128], got ", t.sizes());
+    TORCH_CHECK(t.stride(3) == 1 && t.stride(0) % 8 == 0 && t.stride(1) % 8 == 0 && t.stride(2) % 8 == 0,
+                name, " needs contiguous channels and strides that are multiples of 8, got strides ", t.strides());
+    TORCH_CHECK(reinterpret_cast<uintptr_t>(t.data_ptr()) % 16 == 0, name, " data must be 16-byte aligned");
+    return Str{t.stride(0), t.stride(1), t.stride(2)};
+}
+
+std::vector<torch::Tensor> attention_train_fwd(torch::Tensor q, torch::Tensor k, torch::Tensor v, bool causal,
+                                               double scale) {
+    TORCH_CHECK(q.dim() == 4, "q must be [B, L, H, 128], got ", q.sizes());
+    const int64_t B = q.size(0), L = q.size(1), H = q.size(2);
+    const Str qs = head_strides("q", q, B, L, H), ks = head_strides("k", k, B, L, -1);
+    const int64_t KVH = k.size(2);
+    const Str vs = head_strides("v", v, B, L, KVH);
+    TORCH_CHECK(KVH > 0 && H % KVH == 0, "H (", H, ") must be a multiple of KVH (", KVH, ")");
+    TORCH_CHECK(q.device() == k.device() && q.device() == v.device(), "q, k, v must be on one device");
+    const c10::cuda::CUDAGuard device_guard(q.device());
+    auto o = torch::empty({B, L, H, 128}, q.options());
+    auto lse = torch::empty({B, H, L}, q.options().dtype(torch::kFloat32));
+    attn_train_fwd_dispatch(q.data_ptr(), qs, k.data_ptr(), ks, v.data_ptr(), vs, o.data_ptr(),
+                            Str{o.stride(0), o.stride(1), o.stride(2)}, lse.data_ptr<float>(), (int)B, (int)H, (int)KVH,
+                            (int)L, (float)scale, causal, at::cuda::getCurrentCUDAStream().stream());
+    return {o, lse};
+}
+
+std::vector<torch::Tensor> attention_train_bwd(torch::Tensor q, torch::Tensor k, torch::Tensor v, torch::Tensor o,
+                                               torch::Tensor lse, torch::Tensor dout, bool causal, double scale,
+                                               int64_t stages) {
+    TORCH_CHECK(stages >= 1 && stages <= BWD_ALL, "stages must be a mask in [1, ", (int)BWD_ALL, "], got ", stages);
+    TORCH_CHECK(q.dim() == 4, "q must be [B, L, H, 128], got ", q.sizes());
+    const int64_t B = q.size(0), L = q.size(1), H = q.size(2);
+    const Str qs = head_strides("q", q, B, L, H), ks = head_strides("k", k, B, L, -1);
+    const int64_t KVH = k.size(2);
+    const Str vs = head_strides("v", v, B, L, KVH), os = head_strides("o", o, B, L, H);
+    const Str dos = head_strides("dout", dout, B, L, H);
+    TORCH_CHECK(KVH > 0 && H % KVH == 0, "H (", H, ") must be a multiple of KVH (", KVH, ")");
+    TORCH_CHECK(lse.scalar_type() == torch::kFloat32 && lse.is_contiguous() && lse.dim() == 3 && lse.size(0) == B &&
+                    lse.size(1) == H && lse.size(2) == L,
+                "lse must be contiguous fp32 [", B, ", ", H, ", ", L, "], got ", lse.scalar_type(), " ", lse.sizes());
+    const c10::cuda::CUDAGuard device_guard(q.device());
+    auto dq = torch::empty({B, L, H, 128}, q.options());
+    auto dk = torch::empty({B, L, KVH, 128}, q.options());
+    auto dv = torch::empty({B, L, KVH, 128}, q.options());
+    auto delta = torch::empty({B, H, L}, q.options().dtype(torch::kFloat32));
+    const auto str = [](const torch::Tensor& t) { return Str{t.stride(0), t.stride(1), t.stride(2)}; };
+    attn_train_bwd_dispatch(q.data_ptr(), qs, k.data_ptr(), ks, v.data_ptr(), vs, o.data_ptr(), os, dout.data_ptr(), dos,
+                            lse.data_ptr<float>(), delta.data_ptr<float>(), dq.data_ptr(), str(dq), dk.data_ptr(),
+                            str(dk), dv.data_ptr(), str(dv), (int)B, (int)H, (int)KVH, (int)L, (float)scale, causal,
+                            (int)stages, at::cuda::getCurrentCUDAStream().stream());
+    return {dq, dk, dv};
+}
+
 int64_t gemm_int4_auto_splits(int64_t M, int64_t N, int64_t K) {
     int cus = at::cuda::getCurrentDeviceProperties()->multiProcessorCount;
     return auto_splits((int)M, (int)N, (int)(K / 32), cus);
@@ -265,4 +327,9 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
           py::arg("pv_mode"), py::arg("skip_below"), py::arg("keep") = py::none());
     m.def("attention_block_rows", &attention_block_rows, "query rows per attention workgroup (= keep-mask block)");
     m.def("attention_max_tiles", &attention_max_tiles, "most key tiles a keep mask supports");
+    m.def("attention_train_fwd", &attention_train_fwd, "gfx906 training attention forward -> (o, lse)", py::arg("q"),
+          py::arg("k"), py::arg("v"), py::arg("causal"), py::arg("scale"));
+    m.def("attention_train_bwd", &attention_train_bwd, "gfx906 training attention backward -> (dq, dk, dv)",
+          py::arg("q"), py::arg("k"), py::arg("v"), py::arg("o"), py::arg("lse"), py::arg("dout"), py::arg("causal"),
+          py::arg("scale"), py::arg("stages") = (int64_t)BWD_ALL);
 }

@@ -1,5 +1,4 @@
-#include <hip/hip_runtime.h>
-#include <cstdint>
+#include "wave64.hpp"
 
 // Fused (flash-style) attention for gfx906, head dim 128, native GQA.
 // out[b, l, h*128 + d] = softmax(q . k^T) v, one workgroup per BQ query rows of
@@ -40,14 +39,10 @@ enum { QK_F16 = 0, QK_I8 = 1, QK_I4 = 2 };
 // P.V dots are ~13% of the kernel, the extra spill cost more (cead94d).
 enum { PV_F16 = 0, PV_U8 = 1 };
 
-typedef _Float16 half2_t __attribute__((ext_vector_type(2)));
-
 template <int QK> struct QKRow;
 template <> struct QKRow<QK_F16> { static constexpr int BYTES = ATT_D * 2; static constexpr int THREADS = 256; };
 template <> struct QKRow<QK_I8> { static constexpr int BYTES = ATT_D; static constexpr int THREADS = 512; };
 template <> struct QKRow<QK_I4> { static constexpr int BYTES = ATT_D / 2; static constexpr int THREADS = 512; };
-
-__device__ __forceinline__ half2_t as_h2(uint32_t v) { return __builtin_bit_cast(half2_t, v); }
 
 // 16 bytes of a against 16 bytes of b, accumulated
 template <int QK> __device__ __forceinline__ void qk_dot(uint4 a, uint4 b, float& facc, int& iacc);
@@ -68,37 +63,6 @@ template <> __device__ __forceinline__ void qk_dot<QK_I4>(uint4 a, uint4 b, floa
     iacc = __builtin_amdgcn_sdot8((int)a.y, (int)b.y, iacc, false);
     iacc = __builtin_amdgcn_sdot8((int)a.z, (int)b.z, iacc, false);
     iacc = __builtin_amdgcn_sdot8((int)a.w, (int)b.w, iacc, false);
-}
-
-// Reductions over the 16 lanes of a DPP row (= the 16 tx lanes of one ty).
-// DPP moves are plain VALU; __shfl_xor compiles to ds_bpermute, an LDS round
-// trip per step -- 4 chained per reduction, ~40 per thread per tile.
-template <int CTRL> __device__ __forceinline__ float dpp(float v) {
-    return __builtin_bit_cast(float, __builtin_amdgcn_update_dpp(0, __builtin_bit_cast(int, v), CTRL, 0xF, 0xF, false));
-}
-#define DPP_QUAD_XOR1 0xB1  // quad_perm [1, 0, 3, 2]
-#define DPP_QUAD_XOR2 0x4E  // quad_perm [2, 3, 0, 1]
-#define DPP_ROW_ROR4 0x124
-#define DPP_ROW_ROR8 0x128
-__device__ __forceinline__ float row_max16(float v) {
-    v = fmaxf(v, dpp<DPP_QUAD_XOR1>(v));
-    v = fmaxf(v, dpp<DPP_QUAD_XOR2>(v));
-    v = fmaxf(v, dpp<DPP_ROW_ROR4>(v));
-    return fmaxf(v, dpp<DPP_ROW_ROR8>(v));
-}
-__device__ __forceinline__ float row_sum16(float v) {
-    v += dpp<DPP_QUAD_XOR1>(v);
-    v += dpp<DPP_QUAD_XOR2>(v);
-    v += dpp<DPP_ROW_ROR4>(v);
-    return v + dpp<DPP_ROW_ROR8>(v);
-}
-
-__device__ __forceinline__ float wave_max_of_rows(float row_uniform) {
-    const int v = __builtin_bit_cast(int, row_uniform);
-    return fmaxf(fmaxf(__builtin_bit_cast(float, __builtin_amdgcn_readlane(v, 0)),
-                       __builtin_bit_cast(float, __builtin_amdgcn_readlane(v, 16))),
-                 fmaxf(__builtin_bit_cast(float, __builtin_amdgcn_readlane(v, 32)),
-                       __builtin_bit_cast(float, __builtin_amdgcn_readlane(v, 48))));
 }
 
 // Q [B, H, Lq, QROW] bytes, q_scale [B, H, Lq] (int modes), K [B, KVH, Lk, QROW],

@@ -25,6 +25,7 @@ def _get_ext():
                 os.path.join(this_dir, "csrc", "int4_gemm_scaled.hip"),
                 os.path.join(this_dir, "csrc", "attention.hip"),
                 os.path.join(this_dir, "csrc", "int8_gemm.hip"),
+                os.path.join(this_dir, "csrc", "attention_train.hip"),
             ],
             extra_cuda_cflags=["--offload-arch=gfx906", "-O3"],
             verbose=False,
