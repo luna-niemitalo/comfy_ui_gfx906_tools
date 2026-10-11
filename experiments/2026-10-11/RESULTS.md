@@ -124,6 +124,58 @@ placement / precision (decides whether full FT fits) > chunked or fused cross-en
 Host-offload caveat: 64 GB RAM with the desktop in use and the 2026-09-28 kswapd Oops on record;
 keep host state at the 8-bit-moments size (~24 GB), not fp32 Adam (48 GB).
 
+## 5. Linears and low-precision training (full fine-tune track)
+
+**fp16 wgrad layouts** (`wgrad_layouts.py`): at 4B shapes the autograd order already runs
+15.3-19.0 TFLOPS (8B's wide matrices 6.4-11, other orders only partly better). The 4B block's
+linears (~170 ms) are at ~15 TFLOPS of torch's fp16 GEMM ceiling of ~19: fp16 has ~10-20% left.
+The lever is precision.
+
+**Format study** (`quant_study.py`): real Qwen3-4B tensors (local checkpoint, 1024 tokens,
+loss 2.0/token), X / W / dY of all 7 linears in layers 0, 1, 17, 34, 35; emulated GEMM rel. error,
+mean over the 35 linears:
+
+| Format | fprop | dgrad | wgrad | wgrad, mean of 8 SR samples |
+|---|---|---|---|---|
+| int8 b32 (ours) | 0.7% | 0.9% | 1.1% | |
+| int4 b32 (ours) | 11.3% | 15.5% | 14.2% | |
+| int4 b16 | 9.4% | 12.9% | 11.6% | |
+| int4 b16 + 16x16 W | 13.0% | 16.9% | 11.6% | |
+| int4 b16 + recipe (16x16 W, SR grads, RHT16 wgrad) | 13.0% | 19.7% | 12.0% | 8.4% |
+| MXFP4 | 12.9% | 16.9% | 17.6% | |
+| NVFP4 | 9.1% | 12.6% | 11.1% | |
+| NVFP4 + 16x16 W | 10.6% | 14.2% | 11.1% | |
+| NVFP4 + recipe | 10.6% | 17.1% | 16.7% | 10.8% |
+| ternary W (absmean), int8 A | 59.1% | | | |
+
+- int4 b16 ~= NVFP4 (within 0.5 points). NVFP4 + recipe trained 12B / 10T tokens within ~1-1.5%
+  loss of FP8 (arXiv 2509.25149), so gfx906's v_dot8 int4 is in the right numeric class.
+- 16x16 weight tiles (the paper's fix for W vs W^T inconsistency) cost int4 more than FP4
+  (fprop 9.4 -> 13.0% vs 9.1 -> 10.6%): a uniform grid tolerates a coarser scale worse.
+- SR: one sample is noisier, the mean of 8 drops below round-to-nearest (8.4% vs 11.6%) --
+  unbiased, which accumulation over micro-batches exploits.
+- Paper: most of the FP4 loss gap comes from quantizing forward tensors. For fine-tuning an
+  existing model this matters more (fprop error perturbs the pretrained function from step 0).
+- Ternary straight from a pretrained model is destroyed (59%); only distillation-style QAT
+  (BitDistill, arXiv 2510.13998) recovers it, with a gap that grows with size.
+
+**Proposed int4 training path on gfx906 (not built)**, cheapest-risk first:
+1. fp16 fprop, int4 b16 dgrad + wgrad (SR on dY, RHT16 on wgrad inputs), last ~4 blocks fp16:
+   forward exact, 2/3 of the linear flops at int4. Linears ~1.4x.
+2. If (1) holds: int4 fprop too (or int8 fprop, 0.7%) -> linears ~1.6-1.7x.
+   Needs: block-16 variant of the int4 GEMM (more scale math; current b32 kernel 36-39 TFLOPS incl.
+   quantize), a fused transpose + RHT + SR quantize kernel for wgrad (the int8 wgrad with separate
+   transposes ran 3.4-11 TFLOPS: the transposes, not the GEMM), fp32 wgrad accumulation.
+   Gate: short fine-tune runs of Qwen3-4B against fp16, same data/seed, loss curves.
+
+**Extending an existing architecture**: LLaMA Pro block expansion (arXiv 2401.02415): insert
+zero-initialized (identity) copies of blocks, train only them, freeze the original. Fits this
+hardware: frozen blocks run our int4 W4A4 fprop + dgrad (no wgrad, LoRA-int4 cost), new blocks
+full fp16. 4B + 8 new blocks: ~430 tok/s per card data-parallel (estimate: 36 x 0.17 + 8 x 0.26 +
+1.3 s per 4096 tokens), new-block optimizer state ~9.6 GB fp32 Adam on host. Depth up-scaling
+(duplicate layers + full continued pretraining) and MoE upcycling (MLP -> experts) need full
+training of the larger model: memory-bound here.
+
 ## Caveats
 
 - int4 W4A4 error (13.8% per GEMM, random data) and 4-bit dY in dgrad: training
