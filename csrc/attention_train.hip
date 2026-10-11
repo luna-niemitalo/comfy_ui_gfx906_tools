@@ -1,4 +1,4 @@
-#include "attention_train.hpp"
+#include "train_kernels.hpp"
 #include "wave64.hpp"
 
 // Training attention for gfx906: forward with log-sum-exp, backward in

@@ -3,11 +3,12 @@
 #include <c10/cuda/CUDAGuard.h>
 #include <hip/hip_runtime.h>
 
-#include "attention_train.hpp"
+#include "train_kernels.hpp"
 
 void quantize_int4_dispatch(int dtype, const void* x, void* packed, float* scale, long total_blocks, hipStream_t stream);
-void gemm_dispatch(int dtype, const void* A, const float* As, const void* B, const float* Bs, const void* bias,
-                   void* C, int M, int N, int n_blocks, int splits, float* workspace, hipStream_t stream);
+void gemm_dispatch(int dtype, int qblock, const void* A, const float* As, const void* B, const float* Bs,
+                   const void* bias, void* C, int M, int N, int n_blocks, int splits, float* workspace,
+                   hipStream_t stream);
 int gemm_tiles(int M, int N);
 int gemm_k_tiles(int n_blocks);
 void attention_dispatch(int qk_mode, int pv_mode, const uint8_t* Q, const float* qs, const uint8_t* K, const float* ks,
@@ -70,12 +71,20 @@ std::vector<torch::Tensor> quantize_int4(torch::Tensor x) {
 // Returns [M, N] in out_dtype; bias (optional, out_dtype) is fused into the store.
 // splits: split-K count, 0 = auto_splits.
 torch::Tensor gemm_int4(torch::Tensor A_packed, torch::Tensor A_scale, torch::Tensor B_packed, torch::Tensor B_scale,
-                        c10::optional<torch::Tensor> bias, torch::ScalarType out_dtype, int64_t splits) {
+                        c10::optional<torch::Tensor> bias, torch::ScalarType out_dtype, int64_t splits,
+                        int64_t qblock) {
     TORCH_CHECK(A_packed.is_cuda() && B_packed.is_cuda(), "inputs must be on device");
     TORCH_CHECK(A_packed.device() == B_packed.device(), "A and B must be on the same device");
     TORCH_CHECK(A_packed.dtype() == torch::kInt8 && B_packed.dtype() == torch::kInt8, "packed tensors must be int8");
-    TORCH_CHECK(A_packed.size(1) == B_packed.size(1), "K mismatch: A ", A_packed.sizes(), " B ", B_packed.sizes());
+    TORCH_CHECK(A_packed.dim() == 2 && B_packed.dim() == 2 && A_packed.size(1) == B_packed.size(1) &&
+                    A_packed.size(1) % 16 == 0,
+                "expected A [M, K/2], B [N, K/2], K % 32 == 0; got A ", A_packed.sizes(), " B ", B_packed.sizes());
     TORCH_CHECK(A_scale.dtype() == torch::kFloat32 && B_scale.dtype() == torch::kFloat32, "scales must be float32");
+    TORCH_CHECK(qblock == 32 || qblock == 16, "qblock must be 32 or 16, got ", qblock);
+    const int64_t K = A_packed.size(1) * 2;
+    TORCH_CHECK(A_scale.numel() == A_packed.size(0) * K / qblock && B_scale.numel() == B_packed.size(0) * K / qblock,
+                "scales must be [M, K/", qblock, "] / [N, K/", qblock, "] = ", A_packed.size(0) * K / qblock, " / ",
+                B_packed.size(0) * K / qblock, " elements, got ", A_scale.numel(), " / ", B_scale.numel());
     const c10::cuda::CUDAGuard device_guard(A_packed.device());
     auto A = A_packed.contiguous(), B = B_packed.contiguous();
     auto As = A_scale.contiguous(), Bs = B_scale.contiguous();
@@ -96,7 +105,7 @@ torch::Tensor gemm_int4(torch::Tensor A_packed, torch::Tensor A_scale, torch::Te
     }
     torch::Tensor workspace;
     if (splits > 1) workspace = torch::empty({splits, M, N}, A.options().dtype(torch::kFloat32));
-    gemm_dispatch(dtype_code(out_dtype), A.data_ptr(), As.data_ptr<float>(), B.data_ptr(), Bs.data_ptr<float>(),
+    gemm_dispatch(dtype_code(out_dtype), (int)qblock, A.data_ptr(), As.data_ptr<float>(), B.data_ptr(), Bs.data_ptr<float>(),
                   bias_ptr, C.data_ptr(), (int)M, (int)N, (int)n_blocks, (int)splits,
                   splits > 1 ? workspace.data_ptr<float>() : nullptr, at::cuda::getCurrentCUDAStream().stream());
     return C;
@@ -305,6 +314,48 @@ std::vector<torch::Tensor> attention_train_bwd(torch::Tensor q, torch::Tensor k,
     return {dq, dk, dv};
 }
 
+// int4 block-16 training quantizers. IN: x fp16 [R, C], channels contiguous (rows
+// may be strided). OUT: (packed int8, scale fp32) in gemm_int4(qblock=16)'s layout.
+static void check_train_quant_input(const torch::Tensor& x, int64_t mult_r, int64_t mult_c) {
+    TORCH_CHECK(x.is_cuda() && x.scalar_type() == torch::kFloat16 && x.dim() == 2 && x.stride(1) == 1,
+                "x must be a device fp16 [R, C] tensor with contiguous rows, got ", x.scalar_type(), " ", x.sizes(),
+                " strides ", x.strides());
+    TORCH_CHECK(x.size(0) % mult_r == 0 && x.size(1) % mult_c == 0, "x must be [R % ", mult_r, " == 0, C % ", mult_c,
+                " == 0], got ", x.sizes());
+    TORCH_CHECK(x.stride(0) % 8 == 0 && reinterpret_cast<uintptr_t>(x.data_ptr()) % 16 == 0,
+                "x rows must be 16-byte aligned, got row stride ", x.stride(0));
+}
+
+std::vector<torch::Tensor> quantize_int4_rows(torch::Tensor x, bool sr, int64_t seed) {
+    check_train_quant_input(x, 1, 32);
+    const c10::cuda::CUDAGuard device_guard(x.device());
+    const int64_t R = x.size(0), C = x.size(1);
+    auto packed = torch::empty({R, C / 2}, x.options().dtype(torch::kInt8));
+    auto scale = torch::empty({R, C / 16}, x.options().dtype(torch::kFloat32));
+    quant_rows_b16_dispatch(x.data_ptr(), x.stride(0), (int)R, (int)C, sr, (uint32_t)seed, packed.data_ptr(),
+                            scale.data_ptr<float>(), at::cuda::getCurrentCUDAStream().stream());
+    return {packed, scale};
+}
+
+std::vector<torch::Tensor> quantize_int4_cols(torch::Tensor x, c10::optional<torch::Tensor> signs, bool sr,
+                                              int64_t seed) {
+    check_train_quant_input(x, 32, 1);
+    if (signs.has_value()) {
+        TORCH_CHECK(signs->is_cuda() && signs->scalar_type() == torch::kFloat32 && signs->numel() == 16 &&
+                        signs->is_contiguous(),
+                    "signs must be a contiguous device fp32 tensor of 16, got ", signs->scalar_type(), " ",
+                    signs->sizes());
+    }
+    const c10::cuda::CUDAGuard device_guard(x.device());
+    const int64_t R = x.size(0), C = x.size(1);
+    auto packed = torch::empty({C, R / 2}, x.options().dtype(torch::kInt8));
+    auto scale = torch::empty({C, R / 16}, x.options().dtype(torch::kFloat32));
+    quant_cols_b16_dispatch(x.data_ptr(), x.stride(0), (int)R, (int)C,
+                            signs.has_value() ? signs->data_ptr<float>() : nullptr, sr, (uint32_t)seed,
+                            packed.data_ptr(), scale.data_ptr<float>(), at::cuda::getCurrentCUDAStream().stream());
+    return {packed, scale};
+}
+
 int64_t gemm_int4_auto_splits(int64_t M, int64_t N, int64_t K) {
     int cus = at::cuda::getCurrentDeviceProperties()->multiProcessorCount;
     return auto_splits((int)M, (int)N, (int)(K / 32), cus);
@@ -313,7 +364,8 @@ int64_t gemm_int4_auto_splits(int64_t M, int64_t N, int64_t K) {
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     m.def("quantize_int4", &quantize_int4, "fused block-32 int4 activation quantize");
     m.def("gemm_int4", &gemm_int4, "gfx906 block-scaled int4 GEMM", py::arg("A_packed"), py::arg("A_scale"),
-          py::arg("B_packed"), py::arg("B_scale"), py::arg("bias"), py::arg("out_dtype"), py::arg("splits") = 0);
+          py::arg("B_packed"), py::arg("B_scale"), py::arg("bias"), py::arg("out_dtype"), py::arg("splits") = 0,
+          py::arg("qblock") = 32);
     m.def("gemm_int4_auto_splits", &gemm_int4_auto_splits, "split-K count gemm_int4 picks for [M,K] x [N,K]^T");
     m.def("quantize_int8", &quantize_int8, "block-32 int8 quantize (weights and activations)");
     m.def("gemm_int8", &gemm_int8, "gfx906 block-scaled int8 GEMM", py::arg("A"), py::arg("A_scale"), py::arg("B"),
@@ -327,6 +379,11 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
           py::arg("pv_mode"), py::arg("skip_below"), py::arg("keep") = py::none());
     m.def("attention_block_rows", &attention_block_rows, "query rows per attention workgroup (= keep-mask block)");
     m.def("attention_max_tiles", &attention_max_tiles, "most key tiles a keep mask supports");
+    m.def("quantize_int4_rows", &quantize_int4_rows, "int4 block-16 quantize along rows (training)", py::arg("x"),
+          py::arg("sr"), py::arg("seed"));
+    m.def("quantize_int4_cols", &quantize_int4_cols,
+          "int4 block-16 quantize along columns, transposed, optional random Hadamard (training)", py::arg("x"),
+          py::arg("signs"), py::arg("sr"), py::arg("seed"));
     m.def("attention_train_fwd", &attention_train_fwd, "gfx906 training attention forward -> (o, lse)", py::arg("q"),
           py::arg("k"), py::arg("v"), py::arg("causal"), py::arg("scale"));
     m.def("attention_train_bwd", &attention_train_bwd, "gfx906 training attention backward -> (dq, dk, dv)",

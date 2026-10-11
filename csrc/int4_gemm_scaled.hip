@@ -23,6 +23,11 @@
 //   rolled (unrolling raises VGPRs for no gain).
 // - grouped tile order: GROUP_M M-tiles walk N together so co-resident WGs
 //   share A and B slices in L2
+// SUB = scales per 16-byte load: 1 = 32-element blocks (inference, the path
+// above), 2 = 16-element blocks (training: int4 b16 matches NVFP4's error on
+// real Qwen3-4B tensors, develop/experiments/2026-10-11/RESULTS.md 5). With 2,
+// the int32 partial splits into dots x,y and z,w, each rescaled; scale tensors
+// are [rows, K / 16].
 #define QBLOCK 32
 #define BK_BLOCKS 4
 #define GROUP_M 8
@@ -45,15 +50,15 @@ __device__ __forceinline__ void from_float(float v, __hip_bfloat16* out) { *out 
 // Split-K: blockIdx.y picks a slice of `tiles_per_split` K stages. With one
 // split C is the output; otherwise C is an fp32 workspace [splits, M, N] with
 // no bias, summed by splitk_reduce_kernel (gfx906 has no global float atomics).
-template <typename T>
+template <typename T, int SUB>
 __global__ void __launch_bounds__(THREADS) __attribute__((amdgpu_waves_per_eu(2))) int4_gemm_kernel(
     const uint4* __restrict__ A, const float* __restrict__ A_scale,
     const uint4* __restrict__ B, const float* __restrict__ B_scale,
     const T* __restrict__ bias, T* __restrict__ C, int M, int N, int n_blocks, int tiles_per_split) {
     __shared__ uint4 As[BM * ROW];
     __shared__ uint4 Bs[BN * ROW];
-    __shared__ float As_scale[BK_BLOCKS][BM];
-    __shared__ float Bs_scale[BK_BLOCKS][BN];
+    __shared__ float As_scale[SUB][BK_BLOCKS][BM];
+    __shared__ float Bs_scale[SUB][BK_BLOCKS][BN];
 
     const int tiles_m = (M + BM - 1) / BM;
     const int tiles_n = (N + BN - 1) / BN;
@@ -84,16 +89,26 @@ __global__ void __launch_bounds__(THREADS) __attribute__((amdgpu_waves_per_eu(2)
     const int load_m = row0 + load_r;
     const int load_n = col0 + load_r;
     uint4 a_pref, b_pref;
-    float as_pref, bs_pref;
+    float as_pref[SUB], bs_pref[SUB];
     const uint4 zero4 = make_uint4(0, 0, 0, 0);
+    // Loads go to clamped (always valid) indices and the value is selected
+    // after: `ok ? A[i] : zero4` compiled to a select between the global
+    // address and a scratch copy of zero4 (32 B/lane, flat loads).
     auto load_stage = [&](int kt) {
         int kb = kt * BK_BLOCKS + load_c;
         bool a_ok = load_m < M && kb < n_blocks;
         bool b_ok = load_n < N && kb < n_blocks;
-        a_pref = a_ok ? A[(size_t)load_m * n_blocks + kb] : zero4;
-        as_pref = a_ok ? A_scale[(size_t)load_m * n_blocks + kb] : 0.0f;
-        b_pref = b_ok ? B[(size_t)load_n * n_blocks + kb] : zero4;
-        bs_pref = b_ok ? B_scale[(size_t)load_n * n_blocks + kb] : 0.0f;
+        const size_t a_i = (size_t)min(load_m, M - 1) * n_blocks + min(kb, n_blocks - 1);
+        const size_t b_i = (size_t)min(load_n, N - 1) * n_blocks + min(kb, n_blocks - 1);
+        const uint4 a_v = A[a_i], b_v = B[b_i];
+        a_pref = a_ok ? a_v : zero4;
+        b_pref = b_ok ? b_v : zero4;
+#pragma unroll
+        for (int s = 0; s < SUB; s++) {
+            const float as_v = A_scale[a_i * SUB + s], bs_v = B_scale[b_i * SUB + s];
+            as_pref[s] = a_ok ? as_v : 0.0f;
+            bs_pref[s] = b_ok ? bs_v : 0.0f;
+        }
     };
 
     const int k_first = blockIdx.y * tiles_per_split;
@@ -102,32 +117,47 @@ __global__ void __launch_bounds__(THREADS) __attribute__((amdgpu_waves_per_eu(2)
     load_stage(k_first);
     for (int kt = k_first; kt < k_end; kt++) {
         As[load_r * ROW + load_c] = a_pref;
-        As_scale[load_c][load_r] = as_pref;
         Bs[load_r * ROW + load_c] = b_pref;
-        Bs_scale[load_c][load_r] = bs_pref;
+#pragma unroll
+        for (int s = 0; s < SUB; s++) {
+            As_scale[s][load_c][load_r] = as_pref[s];
+            Bs_scale[s][load_c][load_r] = bs_pref[s];
+        }
         __syncthreads();
         if (kt + 1 < k_end) load_stage(kt + 1);
 
 #pragma unroll 1
         for (int c = 0; c < BK_BLOCKS; c++) {
             uint4 bq[TN];
-            float bsc[TN];
+            float bsc[SUB][TN];
 #pragma unroll
             for (int j = 0; j < TN; j++) {
                 bq[j] = Bs[(tx + j * THREADS_X) * ROW + c];
-                bsc[j] = Bs_scale[c][tx + j * THREADS_X];
+#pragma unroll
+                for (int s = 0; s < SUB; s++) bsc[s][j] = Bs_scale[s][c][tx + j * THREADS_X];
             }
 #pragma unroll
             for (int i = 0; i < TM; i++) {
                 uint4 aq = As[(ty + i * THREADS_Y) * ROW + c];
-                float asc = As_scale[c][ty + i * THREADS_Y];
+                float asc[SUB];
+#pragma unroll
+                for (int s = 0; s < SUB; s++) asc[s] = As_scale[s][c][ty + i * THREADS_Y];
 #pragma unroll
                 for (int j = 0; j < TN; j++) {
-                    int ip = __builtin_amdgcn_sdot8((int)aq.x, (int)bq[j].x, 0, false);
-                    ip = __builtin_amdgcn_sdot8((int)aq.y, (int)bq[j].y, ip, false);
-                    ip = __builtin_amdgcn_sdot8((int)aq.z, (int)bq[j].z, ip, false);
-                    ip = __builtin_amdgcn_sdot8((int)aq.w, (int)bq[j].w, ip, false);
-                    acc[i][j] = fmaf((float)ip, asc * bsc[j], acc[i][j]);
+                    if constexpr (SUB == 1) {
+                        int ip = __builtin_amdgcn_sdot8((int)aq.x, (int)bq[j].x, 0, false);
+                        ip = __builtin_amdgcn_sdot8((int)aq.y, (int)bq[j].y, ip, false);
+                        ip = __builtin_amdgcn_sdot8((int)aq.z, (int)bq[j].z, ip, false);
+                        ip = __builtin_amdgcn_sdot8((int)aq.w, (int)bq[j].w, ip, false);
+                        acc[i][j] = fmaf((float)ip, asc[0] * bsc[0][j], acc[i][j]);
+                    } else {
+                        int lo = __builtin_amdgcn_sdot8((int)aq.x, (int)bq[j].x, 0, false);
+                        lo = __builtin_amdgcn_sdot8((int)aq.y, (int)bq[j].y, lo, false);
+                        int hi = __builtin_amdgcn_sdot8((int)aq.z, (int)bq[j].z, 0, false);
+                        hi = __builtin_amdgcn_sdot8((int)aq.w, (int)bq[j].w, hi, false);
+                        acc[i][j] = fmaf((float)lo, asc[0] * bsc[0][j], acc[i][j]);
+                        acc[i][j] = fmaf((float)hi, asc[1] * bsc[1][j], acc[i][j]);
+                    }
                 }
             }
         }
@@ -197,18 +227,18 @@ static void quantize_launch(const void* x, void* packed, float* scale, long tota
 }
 
 // splits > 1 needs `workspace`: fp32 [splits, M, N]
-template <typename T>
+template <typename T, int SUB>
 static void gemm_launch(const void* A, const float* As, const void* B, const float* Bs, const void* bias, void* C,
                         int M, int N, int n_blocks, int splits, float* workspace, hipStream_t stream) {
     int tiles = ((M + BM - 1) / BM) * ((N + BN - 1) / BN);
     int k_tiles = (n_blocks + BK_BLOCKS - 1) / BK_BLOCKS;
     int tiles_per_split = (k_tiles + splits - 1) / splits;
     if (splits == 1) {
-        int4_gemm_kernel<T><<<dim3(tiles, 1), THREADS, 0, stream>>>(
+        int4_gemm_kernel<T, SUB><<<dim3(tiles, 1), THREADS, 0, stream>>>(
             (const uint4*)A, As, (const uint4*)B, Bs, (const T*)bias, (T*)C, M, N, n_blocks, tiles_per_split);
         return;
     }
-    int4_gemm_kernel<float><<<dim3(tiles, splits), THREADS, 0, stream>>>(
+    int4_gemm_kernel<float, SUB><<<dim3(tiles, splits), THREADS, 0, stream>>>(
         (const uint4*)A, As, (const uint4*)B, Bs, nullptr, workspace, M, N, n_blocks, tiles_per_split);
     long MN = (long)M * N;
     splitk_reduce_kernel<T><<<(MN + THREADS - 1) / THREADS, THREADS, 0, stream>>>(
@@ -221,11 +251,21 @@ void quantize_int4_dispatch(int dtype, const void* x, void* packed, float* scale
     else quantize_launch<__hip_bfloat16>(x, packed, scale, total_blocks, stream);
 }
 
-void gemm_dispatch(int dtype, const void* A, const float* As, const void* B, const float* Bs, const void* bias,
-                   void* C, int M, int N, int n_blocks, int splits, float* workspace, hipStream_t stream) {
-    if (dtype == 0) gemm_launch<float>(A, As, B, Bs, bias, C, M, N, n_blocks, splits, workspace, stream);
-    else if (dtype == 1) gemm_launch<__half>(A, As, B, Bs, bias, C, M, N, n_blocks, splits, workspace, stream);
-    else gemm_launch<__hip_bfloat16>(A, As, B, Bs, bias, C, M, N, n_blocks, splits, workspace, stream);
+// qblock: 32 or 16 elements per scale (binding.cpp checks); n_blocks counts 16-byte loads (K / 32)
+void gemm_dispatch(int dtype, int qblock, const void* A, const float* As, const void* B, const float* Bs,
+                   const void* bias, void* C, int M, int N, int n_blocks, int splits, float* workspace,
+                   hipStream_t stream) {
+#define GEMM_CASE(TYPE, SUBS) gemm_launch<TYPE, SUBS>(A, As, B, Bs, bias, C, M, N, n_blocks, splits, workspace, stream)
+    if (qblock == 32) {
+        if (dtype == 0) GEMM_CASE(float, 1);
+        else if (dtype == 1) GEMM_CASE(__half, 1);
+        else GEMM_CASE(__hip_bfloat16, 1);
+    } else {
+        if (dtype == 0) GEMM_CASE(float, 2);
+        else if (dtype == 1) GEMM_CASE(__half, 2);
+        else GEMM_CASE(__hip_bfloat16, 2);
+    }
+#undef GEMM_CASE
 }
 
 int gemm_tiles(int M, int N) { return ((M + BM - 1) / BM) * ((N + BN - 1) / BN); }

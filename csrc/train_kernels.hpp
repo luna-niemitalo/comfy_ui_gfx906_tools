@@ -1,7 +1,16 @@
 #pragma once
 #include <hip/hip_runtime.h>
 
-// Interface of attention_train.hip, shared with binding.cpp.
+// Interface of the training kernels (attention_train.hip, int4_train_quant.hip), shared with binding.cpp.
+
+// int4 block-16 training quantizers (int4_train_quant.hip). x: fp16, rows
+// row_stride elements apart. rows: blocks along each row -> [R, C/2] / [R, C/16].
+// cols: transposed, blocks along columns -> [C, R/2] / [C, R/16]; signs (16 fp32,
+// or null) turns on the random Hadamard per 16-row group.
+void quant_rows_b16_dispatch(const void* x, long long row_stride, int R, int C, bool sr, uint32_t seed, void* packed,
+                             float* scale, hipStream_t stream);
+void quant_cols_b16_dispatch(const void* x, long long row_stride, int R, int C, const float* signs, bool sr,
+                             uint32_t seed, void* packed, float* scale, hipStream_t stream);
 
 // Element strides of a [B, L, heads, 128] tensor (channels contiguous).
 struct Str {
