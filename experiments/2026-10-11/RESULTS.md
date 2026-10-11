@@ -79,6 +79,51 @@ rows above. Upper bound: excludes the unexplained ~185 ms.
 | PCIe per card | 7.17 GB/s one way; 3.58 each way when both ways at once; same with both cards at once | no peer path used (card1 = display) |
 | Exchange vs compute | 256 MiB each way per 8B block: 93-100% hidden | - |
 
+## 4. Memory (card0, `mem_bench.py`, kernel v2, 4096 tokens)
+
+Measured per layer:
+
+| | 4B layer | 8B layer |
+|---|---|---|
+| fp16 weights (full / LoRA int4 incl. W^T copy) | 0.19 / 0.127 GiB | 0.41 / 0.265 GiB |
+| activations kept fwd -> bwd | 0.553 GiB | 0.797 GiB |
+| all layers, no checkpointing | 19.9 GiB (36 layers) | 25.5 GiB (32) |
+| kept with checkpointing | 0.0195 GiB | 0.031 GiB |
+| block time plain / checkpointed, full fp16 | 234 / 288 ms (+23%) | 553 / 665 ms (+20%) |
+| same, LoRA int4 | 145 / 190 ms (+31%) | 206 / 280 ms (+36%) |
+| LM head peak, plain / chunked CE (1024 rows) | 7.0 / 2.5 GiB | 5.9 / 3.0 GiB |
+| LM head time, plain / chunked | 1.01 / 1.33 s | 1.40 / 1.94 s |
+
+=> Activation checkpointing is mandatory at 4096 tokens on 16 GB, for LoRA too. Sections 1/1b's
+tok/s assumed every layer plain; the realistic numbers below checkpoint as many layers as memory
+forces (spare GiB / saved per layer stay plain).
+
+Corrections to the commonly quoted table: 8-bit Adam with fp32 master is 10 B/param = 20 GB per
+card under FSDP: does not fit 16 GB. fp16 weights without a master copy need stochastic rounding
+in the update (no bf16 here). FSDP re-gathers 8 GB of weights per pass over PCIe 3.0 x8 (no
+bridge): seconds per micro-batch; a pipeline split moves 21 MB of activations instead.
+
+Per-card budget ~15 GiB usable. Estimates from the measured pieces (not run end to end):
+
+| 4B path | GPU memory / card | Host RAM | tok/s 2 cards | Quality vs full FT |
+|---|---|---|---|---|
+| LoRA, int4 base, data parallel, ~9 of 36 layers plain | ~9.3 static+transient | - | ~1050 | LoRA + W4A4 error; convergence untested |
+| Full FT, 2-stage pipeline, fp16 w+g on GPU, optimizer on host (fp32 master + 8-bit moments) | ~10.8 + ~6 plain layers | ~24 GB | ~700 (m = 16 micro-batches) | closest to real full FT |
+| Full FT, pipeline, all on GPU: fp16 w+g, 8-bit m, Adam-mini v, stochastic rounding (HIP) | ~13.5, all checkpointed | - | ~660 | 8-bit / Adam-mini / SR approximations |
+| LISA/BAdam, data parallel (replica + active block's states) | ~10.5 + ~8 plain layers | - | ~760 | between LoRA and full |
+| GaLore, data parallel, layerwise update | ~10.5 + ~8 plain layers | - | ~725 minus SVD | between; needs SR for fp16 weights |
+
+8B: full FT does not fit (fp16 w+g alone are 16 GB per pipeline half). LoRA int4 fits data-parallel
+only all-checkpointed and tight (~14.5 GiB; ~375 tok/s per card); dropping the int4 W^T copy
+(dgrad reading W transposed) halves the base.
+
+Memory levers by size: checkpointing (-19 GiB, +23-36% on checkpointed layers) > optimizer
+placement / precision (decides whether full FT fits) > chunked or fused cross-entropy (-4.5 GiB)
+> int4 W^T copy (-50% of the int4 base) > fused SwiGLU recompute (the MLP holds most of the
+0.55 GiB per layer: gate_up output alone is 160 MB at 4B).
+Host-offload caveat: 64 GB RAM with the desktop in use and the 2026-09-28 kswapd Oops on record;
+keep host state at the 8-bit-moments size (~24 GB), not fp32 Adam (48 GB).
+
 ## Caveats
 
 - int4 W4A4 error (13.8% per GEMM, random data) and 4-bit dY in dgrad: training
