@@ -32,14 +32,16 @@ design and per-kernel numbers in that repo's DESIGN.md) in place of SDPA. Block
 times measured on card0; the LM head is section 1's. Both cards at once showed no
 slowdown in section 1, so the 2-card column doubles.
 
-| Model | Mode | Block ms (was) | Step s / 4096 tok | tok/s per card | tok/s 2 cards | M tok/day | x before |
+Kernel v2 (backward with register-resident rows, DPP reduce-scatter; v1 block in brackets):
+
+| Model | Mode | Block ms (v1; SDPA) | Step s / 4096 tok | tok/s per card | tok/s 2 cards | M tok/day | x SDPA |
 |---|---|---|---|---|---|---|---|
-| 4B | full fp16 | 262 (745) | 10.4 | 393 | 786 | 67.9 | 2.7 |
-| 4B | LoRA, fp16 base | 230 (714) | 9.3 | 442 | 884 | 76.4 | 2.9 |
-| 4B | LoRA, int4 base | 172 (657) | 7.2 | 572 | 1143 | 98.8 | 3.4 |
-| 8B | full fp16 | 584 (1063) | 20.0 | 205 | 409 | 35.4 | 1.8 |
-| 8B | LoRA, fp16 base | 371 (850) | 13.2 | 310 | 620 | 53.6 | 2.2 |
-| 8B | LoRA, int4 base | 234 (713) | 8.8 | 465 | 930 | 80.3 | 2.7 |
+| 4B | full fp16 | 236 (262; 745) | 9.5 | 432 | 864 | 74.6 | 2.9 |
+| 4B | LoRA, fp16 base | 204 (230; 714) | 8.3 | 491 | 982 | 84.9 | 3.2 |
+| 4B | LoRA, int4 base | 147 (172; 657) | 6.3 | 651 | 1303 | 112.5 | 3.9 |
+| 8B | full fp16 | 560 (584; 1063) | 19.3 | 213 | 425 | 36.7 | 1.8 |
+| 8B | LoRA, fp16 base | 348 (371; 850) | 12.5 | 328 | 656 | 56.7 | 2.3 |
+| 8B | LoRA, int4 base | 210 (234; 713) | 8.1 | 508 | 1016 | 87.8 | 3.0 |
 
 The projection in section 2 (3-4x) held. The "unexplained ~185 ms" was torch's
 attention on the block's transposed views; the kernel takes them as strided input.
