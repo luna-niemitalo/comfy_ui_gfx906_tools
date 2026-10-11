@@ -38,7 +38,7 @@ E2M1 = torch.tensor([0.0, 0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0])
 
 def load_model(device):
     from transformers import Qwen3Config, Qwen3ForCausalLM
-    from safetensors.torch import load_file
+    from safetensors import safe_open
     config = Qwen3Config(vocab_size=151936, hidden_size=2560, intermediate_size=9728, num_hidden_layers=36,
                          num_attention_heads=32, num_key_value_heads=8, head_dim=128, rope_theta=1000000.0,
                          rms_norm_eps=1e-6, tie_word_embeddings=True, max_position_embeddings=40960)
@@ -48,14 +48,20 @@ def load_model(device):
     with torch.device(device):
         model = Qwen3ForCausalLM(config)
     torch.set_default_dtype(torch.float32)
-    state = load_file(CKPT)
-    # IN, critical: a key set that doesn't match means a different checkpoint layout
-    expected = {k for k in model.state_dict() if k != "lm_head.weight"}
-    if set(state) != expected:
-        raise SystemExit(f"quant_study: tried to load {CKPT} -- expected keys like {sorted(expected)[:3]} "
-                         f"({len(expected)}) -- actual: missing {sorted(expected - set(state))[:5]}, "
-                         f"extra {sorted(set(state) - expected)[:5]}")
-    model.load_state_dict({k: v.to(torch.float16) for k, v in state.items()}, strict=False)
+    params = model.state_dict()
+    # streamed one tensor at a time: a whole-file load plus its fp16 copy peaked at
+    # ~16 GB of host RAM (kswapd Oops on record, CLAUDE.md Hazards)
+    with safe_open(CKPT, framework="pt", device="cpu") as f:
+        keys = set(f.keys())
+        # IN, critical: a key set that doesn't match means a different checkpoint layout
+        expected = {k for k in params if k != "lm_head.weight"}
+        if keys != expected:
+            raise SystemExit(f"quant_study: tried to load {CKPT} -- expected keys like {sorted(expected)[:3]} "
+                             f"({len(expected)}) -- actual: missing {sorted(expected - keys)[:5]}, "
+                             f"extra {sorted(keys - expected)[:5]}")
+        with torch.no_grad():
+            for k in keys:
+                params[k].copy_(f.get_tensor(k))
     model.tie_weights()
     # 8 GB of weights + 36 layers of eager-attention activations did not fit 16 GB.
     # Checkpointing needs train mode in HF; Qwen3 has no dropout, so outputs are

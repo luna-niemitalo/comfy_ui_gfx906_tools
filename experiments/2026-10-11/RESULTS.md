@@ -176,10 +176,35 @@ full fp16. 4B + 8 new blocks: ~430 tok/s per card data-parallel (estimate: 36 x 
 (duplicate layers + full continued pretraining) and MoE upcycling (MLP -> experts) need full
 training of the larger model: memory-bound here.
 
+## 6. Training gate: int4 backward on real Qwen3-4B (`train_gate.py`, card0, 2026-10-12)
+
+Step 1 of the path above, built (node repo f20cfc6) and run. Setup: layers 16-19 trained (host fp32
+AdamW, lr 2e-5, warmup 10), backward quantized on layers 16-31, 2048-token sequences of comfy/ source,
+comfy/ldm/ held out; val = 8 sequences. Same seed and data order per arm; 150 steps; no arm skipped
+a step.
+
+| arm | val 0 | 25 | 50 | 75 | 100 | 125 | 150 | vs fp16 @150 |
+|---|---|---|---|---|---|---|---|---|
+| fp16 | 1.0667 | 0.9639 | 0.9396 | 0.9204 | 0.9148 | 0.9102 | 0.9091 | -- |
+| int4 b16 recipe, **real kernels** | 1.0667 | 0.9653 | 0.9405 | 0.9215 | 0.9160 | 0.9111 | 0.9102 | +0.0011 |
+| int4 b16 recipe, emulated | 1.0667 | 0.9656 | 0.9405 | 0.9224 | 0.9157 | 0.9120 | 0.9116 | +0.0025 |
+| int4 b32 RTN (inference kernel numerics) | 1.0667 | 0.9657 | 0.9407 | 0.9226 | 0.9158 | 0.9112 | 0.9102 | +0.0011 |
+| int4 b16 RTN | 1.0667 | 0.9652 | 0.9404 | 0.9221 | 0.9156 | 0.9108 | 0.9100 | +0.0009 |
+| int4 b16 SR only | 1.0667 | 0.9652 | 0.9400 | 0.9217 | 0.9161 | 0.9125 | 0.9124 | +0.0033 |
+
+- Every int4 arm tracks fp16 within 0.001-0.003 (~1-3% of the 0.158 improvement); none diverges.
+  The kernel arm matches the emulation (differences = SR sample noise).
+- At this length and lr the ablations don't separate: RTN does as well as SR + RHT. SR's benefit
+  (unbiased gradients) is a long-run effect; 150 steps can't show it. Keep the recipe for long runs.
+- Wall time per step (whole step incl. host optimizer, not a speed measurement): fp16 11.9 s,
+  kernel 14.6 s, emulated 16 s. The kernel arm is SLOWER end to end here although the isolated
+  dgrad+wgrad bench was 1.15-1.34x faster -- per-call W^T requantization and the quantizers
+  aren't amortized. Profile before claiming a speedup.
+
 ## Caveats
 
-- int4 W4A4 error (13.8% per GEMM, random data) and 4-bit dY in dgrad: training
-  convergence untested. int8 is accurate but no faster than fp16.
+- int4 backward convergence: holds for 150 steps of a partial fine-tune (6.); long runs and
+  int4 fprop untested. int8 is accurate but no faster than fp16.
 - fp16 only: bf16 is emulated on gfx906 (see GEMM rows). Needs loss scaling.
 - fp16 wgrad is slow on some shapes in the layout autograd picks (2.9 TFLOPS on
   1B `down`); the other layout wasn't tried.

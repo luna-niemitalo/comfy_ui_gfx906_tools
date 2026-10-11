@@ -1,0 +1,34 @@
+[92mSuccessfully preprocessed all matching files.[0m
+Checking AMD architecture for optimal settings...
+Detected AMD architecture: gfx906
+[92mSuccessfully preprocessed all matching files.[0m
+{"test": "b32 regression", "m": 4096, "k": 9728, "n": 2560, "splits": 0, "bit_identical": true}
+{"test": "b32 regression", "m": 4096, "k": 9728, "n": 2560, "splits": 1, "bit_identical": true}
+{"test": "b32 regression", "m": 4096, "k": 9728, "n": 2560, "splits": 3, "bit_identical": true}
+{"test": "b32 regression", "m": 64, "k": 2560, "n": 6144, "splits": 0, "bit_identical": true}
+{"test": "b32 regression", "m": 64, "k": 2560, "n": 6144, "splits": 1, "bit_identical": true}
+{"test": "b32 regression", "m": 64, "k": 2560, "n": 6144, "splits": 3, "bit_identical": true}
+{"test": "b32 regression", "m": 300, "k": 4096, "n": 1000, "splits": 0, "bit_identical": true}
+{"test": "b32 regression", "m": 300, "k": 4096, "n": 1000, "splits": 1, "bit_identical": true}
+{"test": "b32 regression", "m": 300, "k": 4096, "n": 1000, "splits": 3, "bit_identical": true}
+{"test": "quantizer vs emulation", "case": "rows", "mismatch_fraction": 0.0, "rel_diff": 0.0, "expected": "< 1e-3 both", "passed": true}
+{"test": "quantizer vs emulation", "case": "cols", "mismatch_fraction": 0.0, "rel_diff": 0.0, "expected": "< 1e-3 both", "passed": true}
+{"test": "quantizer vs emulation", "case": "cols+rht", "mismatch_fraction": 8.9e-05, "rel_diff": 0.0, "expected": "< 1e-3 both", "passed": true}
+{"test": "SR unbiased", "one_sample": 0.1395, "mean_of_64": 0.0174, "expected": "mean < one / 5", "passed": true}
+{"test": "b16 gemm vs fp32 of dequantized", "m": 4096, "k": 2560, "n": 6144, "splits": 0, "rel_diff": 8.214062745537376e-07, "expected": "< 1e-5", "passed": true}
+{"test": "b16 gemm vs fp32 of dequantized", "m": 4096, "k": 2560, "n": 6144, "splits": 1, "rel_diff": 8.214062745537376e-07, "expected": "< 1e-5", "passed": true}
+{"test": "b16 gemm vs fp32 of dequantized", "m": 2560, "k": 4096, "n": 9728, "splits": 0, "rel_diff": 1.0411405355625902e-06, "expected": "< 1e-5", "passed": true}
+{"test": "b16 gemm vs fp32 of dequantized", "m": 2560, "k": 4096, "n": 9728, "splits": 1, "rel_diff": 1.0411405355625902e-06, "expected": "< 1e-5", "passed": true}
+{"test": "b16 gemm vs fp32 of dequantized", "m": 96, "k": 4096, "n": 160, "splits": 0, "rel_diff": 4.6580217372138577e-07, "expected": "< 1e-5", "passed": true}
+{"test": "b16 gemm vs fp32 of dequantized", "m": 96, "k": 4096, "n": 160, "splits": 1, "rel_diff": 5.243337000138126e-07, "expected": "< 1e-5", "passed": true}
+[92mSuccessfully preprocessed all matching files.[0m
+Checking AMD architecture for optimal settings...
+Detected AMD architecture: gfx906
+{"test": "int4 backward vs exact", "shape": "qkv", "kernel": {"dgrad": 0.148, "wgrad": 0.148}, "emulated_recipe": {"dgrad": 0.148, "wgrad": 0.1479}}
+{"test": "int4 backward vs exact", "shape": "o", "kernel": {"dgrad": 0.1479, "wgrad": 0.148}, "emulated_recipe": {"dgrad": 0.1479, "wgrad": 0.148}}
+{"test": "int4 backward vs exact", "shape": "gate_up", "kernel": {"dgrad": 0.148, "wgrad": 0.1479}, "emulated_recipe": {"dgrad": 0.1481, "wgrad": 0.148}}
+{"test": "int4 backward vs exact", "shape": "down", "kernel": {"dgrad": 0.1479, "wgrad": 0.1479}, "emulated_recipe": {"dgrad": 0.148, "wgrad": 0.1479}}
+{"test": "speed dgrad+wgrad", "shape": "qkv", "fp16_ms": 15.75, "int4_ms": 11.77, "fp16_tflops": 16.4, "int4_tflops": 21.9, "speedup": 1.34}
+{"test": "speed dgrad+wgrad", "shape": "o", "fp16_ms": 9.39, "int4_ms": 7.89, "fp16_tflops": 18.3, "int4_tflops": 21.8, "speedup": 1.19}
+{"test": "speed dgrad+wgrad", "shape": "gate_up", "fp16_ms": 43.33, "int4_ms": 37.72, "fp16_tflops": 18.8, "int4_tflops": 21.6, "speedup": 1.15}
+{"test": "speed dgrad+wgrad", "shape": "down", "fp16_ms": 23.39, "int4_ms": 18.18, "fp16_tflops": 17.4, "int4_tflops": 22.4, "speedup": 1.29}
