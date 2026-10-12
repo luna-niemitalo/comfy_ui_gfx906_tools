@@ -59,7 +59,17 @@ Run Krea2 (and other DiT image models) fast on 2x Radeon VII (gfx906) via a nati
 
 ## Resume
 
-- **Last state**: all work committed (int4 node repo, `develop/` repo, `rvii-perf`).
+- **Repo consolidation (Luna, 2026-10-12)**: this file now lives in `rvii-comfy` (README.md, DESIGN.md):
+  Gfx906Int4, ResolutionGrowth and develop merged with history, QOL nodes, oc_tools, core edits as
+  `comfyui/patches` against `comfyui/BASE`, root tooling in `comfyui/root`, third-party nodes pinned in
+  `third_party/nodes.toml` (+ patches for DepthAnythingV2/V3 and SPEED). OC content split into
+  `../succubus-oc` (own repo, drafts gitignored). `deploy.nu` tested on scratch: fresh checkout (core files
+  byte-identical to the live tree, rerun all "ok") and a live-like cutover with `--replace --oc` (backups,
+  develop/out moved, OC paths resolve). Live checkout NOT switched yet -- plan, awaiting Luna:
+  `git -C ComfyUI checkout -b rvii <BASE>` (rvii-perf kept as archive), `nu deploy.nu ../ComfyUI --replace
+  --oc ../succubus-oc`, `direnv allow` (.envrc becomes a link), first node load may rebuild the HIP extension.
+  No remote anywhere: a second copy is Luna's step.
+- **Last state** (before consolidation): all work committed (int4 node repo, `develop/` repo, `rvii-perf`).
   Batch split verified bit-identical. Fixed from Luna's workflow run: int4 text encoder
   fp16/fp32 rotation mismatch, text-encoder VRAM (11 GB reserved -> 3.5 GB), CPU fp32
   matmul segfault (flake now puts LP64 `openblasCompat` first on LD_LIBRARY_PATH).
