@@ -11,7 +11,7 @@ replaceable: re-clone, upgrade or rebase it, then deploy again.
    upstream files live in `comfyui/patches/`, a `git am` series against `comfyui/BASE`. Third-party
    nodes are pinned in `third_party/nodes.toml`, and our fixes to them live in
    `third_party/patches/`.
-2. **One copy of our code.** Our nodes, `develop/`, `oc_tools/` and the root tooling are symlinked
+2. **One copy of our code.** Our nodes, `develop/`, `shot_tools/` and the root tooling are symlinked
    into the checkout, not copied. Editing through ComfyUI edits the repo.
 3. **Deploy never deletes.** A real file where a link belongs is skipped, or with `--replace` moved
    to `<comfy>/.rvii-backup/<timestamp>/`. Runtime data inside a replaced dir (`develop/out`) is
@@ -20,10 +20,13 @@ replaceable: re-clone, upgrade or rebase it, then deploy again.
    `git apply --reverse --check` before `git am`.
 5. **Validate at the boundary.** The target must be a git checkout of a ComfyUI tree that contains
    `comfyui/BASE`. Failures print expected and actual.
-6. **Creative content is not toolchain.** The OC encyclopedia's content is `../succubus-oc`. Its
-   `tools/` is a link back to `oc_tools/`, and the tools resolve paths from where they are invoked
-   (`os.path.abspath`, not `realpath`), so `ComfyUI/develop/succubus_oc/tools/render.py` still
-   sees `ComfyUI/` as the repo root.
+6. **Project content is not toolchain.** A project's content, its project-specific experiments
+   and tools live in the project's own repo (the OC: canon, prompts, catalog, part-growth and
+   character-sheet scripts, encyclopedia tools). This repo holds only what is generic. The shot
+   tools are linked one by one into the project's `tools/`, and they resolve paths from where they
+   are invoked (`os.path.abspath`, not `realpath`), so `ComfyUI/develop/<project>/tools/render.py`
+   still sees `ComfyUI/` as the repo root and `develop/<project>` as the project.
+   (2026-10-12: the OC material that first landed here was rewritten out of this repo's history.)
 
 ## Rejected alternatives
 

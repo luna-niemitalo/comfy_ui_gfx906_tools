@@ -157,8 +157,8 @@ def exclusive(masks):
 
 def owned(score_maps):
     """exclusive() with confidence: a pixel two concepts claim goes to the higher-scoring one instead of
-    neither (OC seed: the tail is 'tail' 0.88 and 'horn' 0.84, the horns 'horn' 0.87 and 'tail' 0.61 --
-    plain exclusivity erased both)."""
+    neither (a portrait seed: one part scored 0.88 for its own concept and 0.84 for a neighbour's, the
+    neighbour the other way round -- plain exclusivity erased both)."""
     stack = torch.stack(list(score_maps.values()))
     best = stack.amax(0)
     return {c: ((s > 0) & (s >= best)).float() for c, s in score_maps.items()}

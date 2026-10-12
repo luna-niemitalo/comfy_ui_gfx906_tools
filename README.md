@@ -12,7 +12,8 @@ Resolution Growth, and the experiments and tools around them, all in one repo.
 | `nodes/ComfyUI-ResolutionGrowth` | Resolution Growth nodes (fixed + progressive) | merged with full history |
 | `nodes/ComfyUI_Luna_QOL_Nodes` | small QOL nodes (material saver, resolution selector, dual-GPU tile sampler) | starts here |
 | `develop/` | harness, recipes, sweeps, dated experiments (`experiments/<date>/`) | merged with full history |
-| `oc_tools/` | OC encyclopedia tools (render, batch, sheet, catalog, book) | starts here |
+| `shot_tools/` | shot-project renderer: render, render_server, batch, contact sheet | starts here |
+| `develop/IMAGE_TO_IMAGE.md` | image-to-image and sectional editing with the growth toolchain, cost per tile-step | |
 | `comfyui/BASE` | the upstream ComfyUI commit our patches apply to | |
 | `comfyui/patches/` | our edits to upstream ComfyUI files, as a `git am` series | from branch `rvii-perf` |
 | `comfyui/root/` | files we add to the ComfyUI root: `run.nu`, `nix/`, `.envrc`, `gpu_profile.py`, ... | replayed with history |
@@ -21,14 +22,15 @@ Resolution Growth, and the experiments and tools around them, all in one repo.
 | `CLAUDE.md` | status and resume notes (the old ComfyUI `CLAUDE.md`, with history) | |
 | `DESIGN.md` | how the repo and the deploy work, invariants | |
 
-The OC encyclopedia's content (canon, prompt blocks, catalog, finals, references) is its own repo,
-`../succubus-oc`. `deploy.nu --oc` links it in.
+Project content is not here. The OC (canon, prompt blocks, catalog, finals, its experiments and
+encyclopedia tools) is its own repo; `deploy.nu --oc <path>` links it in as `develop/succubus_oc`
+and adds the shot tools to its `tools/`.
 
 ## Deploy
 
     nu deploy.nu <comfyui checkout> --dry-run                     # show the plan, change nothing
     nu deploy.nu <comfyui checkout>                               # patches, third-party nodes, missing links
-    nu deploy.nu <comfyui checkout> --replace --oc ../succubus-oc # also turn existing real files into links
+    nu deploy.nu <comfyui checkout> --replace --oc <OC repo>      # also turn existing real files into links
 
 The checkout must contain `comfyui/BASE`. A fresh one:
 
@@ -38,7 +40,7 @@ The checkout must contain `comfyui/BASE`. A fresh one:
 
 ## Updating
 
-- **Nodes, develop, oc_tools, root files**: edit them through the ComfyUI links or here; it is the
+- **Nodes, develop, shot_tools, root files**: edit them through the ComfyUI links or here; it is the
   same file. Commit here.
 - **Upstream ComfyUI files**: commit in the ComfyUI checkout, then regenerate the series:
   `git -C <comfy> format-patch -o comfyui/patches <BASE>..HEAD -- comfy main.py requirements.txt .gitignore extra_model_paths.yaml.example`
@@ -49,6 +51,6 @@ The checkout must contain `comfyui/BASE`. A fresh one:
 
 ## Not here
 
-- No remote. This repo exists only on `unreliable_pool/work`; a second copy is Luna's step.
+- Pushing. `origin` is set (GitHub, `luna-niemitalo/comfy_ui_gfx906_tools`); pushing is Luna's own step.
 - `.claude/settings.local.json` stays in the ComfyUI checkout (globally gitignored).
 - Experiment outputs (`develop/out/`) are gitignored.

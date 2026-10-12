@@ -60,7 +60,7 @@ Run Krea2 (and other DiT image models) fast on 2x Radeon VII (gfx906) via a nati
 ## Resume
 
 - **Repo consolidation (Luna, 2026-10-12)**: this file now lives in `rvii-comfy` (README.md, DESIGN.md):
-  Gfx906Int4, ResolutionGrowth and develop merged with history, QOL nodes, oc_tools, core edits as
+  Gfx906Int4, ResolutionGrowth and develop merged with history, QOL nodes, shot_tools, core edits as
   `comfyui/patches` against `comfyui/BASE`, root tooling in `comfyui/root`, third-party nodes pinned in
   `third_party/nodes.toml` (+ patches for DepthAnythingV2/V3 and SPEED). OC content split into
   `../succubus-oc` (own repo, drafts gitignored). `deploy.nu` tested on scratch: fresh checkout (core files
@@ -70,7 +70,12 @@ Run Krea2 (and other DiT image models) fast on 2x Radeon VII (gfx906) via a nati
   develop/out moved into rvii-comfy/develop/out, the old develop/ + node repos + nix/ in
   `ComfyUI/.rvii-backup/20261012_171547/`, `direnv allow` done, imports checked (no GPU run yet; the first
   node load may rebuild the HIP extension). Edit code in rvii-comfy (or through the links), commit HERE.
-  No remote anywhere: a second copy is Luna's step.
+  **OC moved out (Luna)**: the OC experiments (2026-10-01: part growth, character sheet), encyclopedia
+  tools and the OC sections of this file now live in the OC content repo (`NOTES.md`,
+  `experiments/2026-10-01/`); this repo's history was rewritten without them (filter-branch, before any
+  push; old history in `refs/original/` + a bundle in the session scratchpad). Generic image-to-image
+  notes: `develop/IMAGE_TO_IMAGE.md`. Remotes set (rvii-comfy -> GitHub comfy_ui_gfx906_tools, OC ->
+  GitHub succubus_oc); pushing is Luna's own step.
 - **Last state** (before consolidation): all work committed (int4 node repo, `develop/` repo, `rvii-perf`).
   Batch split verified bit-identical. Fixed from Luna's workflow run: int4 text encoder
   fp16/fp32 rotation mismatch, text-encoder VRAM (11 GB reserved -> 3.5 GB), CPU fp32

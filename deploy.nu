@@ -3,11 +3,11 @@
 #   1. core patches (comfyui/patches) applied with git am onto the checkout -- skipped when present
 #   2. third-party nodes (third_party/nodes.toml) cloned at their pinned commit + our patches
 #   3. links: our nodes, develop/, the root tooling (run.nu, nix/, .envrc, CLAUDE.md, ...) -> this repo
-#   4. --oc: the OC content repo linked in as develop/succubus_oc, its tools/ -> oc_tools/
+#   4. --oc: the OC content repo linked in as develop/succubus_oc, shot_tools/*.py linked into its tools/
 # Never deletes: a real file or dir where a link should go is left alone (reported), or with
 # --replace moved to <comfy>/.rvii-backup/<timestamp>/. Re-running is safe: done steps report "ok".
 #
-#   nu deploy.nu <comfyui checkout> [--dry-run] [--replace] [--oc <succubus-oc repo>]
+#   nu deploy.nu <comfyui checkout> [--dry-run] [--replace] [--oc <OC content repo>]
 
 const LINKS = [
     [link target];
@@ -139,14 +139,23 @@ def oc-links [repo: path, oc: path, dry: bool] {
     if not ($oc | path join "canon_from_chat.md" | path exists) {
         error make {msg: $"--oc: expected the OC content repo \(with canon_from_chat.md\), got ($oc)"}
     }
+    # tools/ is the OC repo's own dir (its encyclopedia tools); the generic shot tools join it as links,
+    # so they find the project as the parent of the tools/ they are invoked through
     let tools = ($oc | path join "tools")
-    if ($tools | path exists) and ($tools | path type) != "symlink" {
-        error make {msg: $"($tools): expected a link to oc_tools/ or nothing, found a real ($tools | path type)"}
+    if ($tools | path type) == "symlink" {
+        error make {msg: $"($tools): expected a directory (the OC repo's own tools), found a link -- the pre-2026-10-12 layout; remove it by hand"}
     }
-    if not ($tools | path exists) {
-        act $dry $"link ($tools) -> oc_tools" { ^ln -s ($repo | path join "oc_tools") $tools }
-    } else {
-        print "  ok tools"
+    if not ($tools | path exists) { act $dry $"mkdir ($tools)" { mkdir $tools } }
+    for tool in (ls ($repo | path join "shot_tools" "*.py" | into glob) | get name) {
+        let at = ($tools | path join ($tool | path basename))
+        let kind = ($at | path type)
+        if $kind == "symlink" and ((^readlink -f $at | str trim) == ($tool | path expand)) {
+            print $"  ok tools/($tool | path basename)"
+        } else if ($at | path exists) or $kind == "symlink" {
+            error make {msg: $"($at): expected a link to ($tool) or nothing, found a ($kind) -- fix by hand"}
+        } else {
+            act $dry $"link tools/($tool | path basename) -> ($tool)" { ^ln -s $tool $at }
+        }
     }
     let at = ($repo | path join "develop" "succubus_oc")
     if ($at | path exists) {
