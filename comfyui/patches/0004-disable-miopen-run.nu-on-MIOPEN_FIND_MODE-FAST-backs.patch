@@ -1,0 +1,45 @@
+From 7086d3512fc3a6c258fd15c476c484553e1b3c33 Mon Sep 17 00:00:00 2001
+From: Luna Niemitalo <luna.niemitalo@gmail.com>
+Date: Tue, 29 Sep 2026 11:57:35 +0300
+Subject: [PATCH 4/5] --disable-miopen (run.nu: on, MIOPEN_FIND_MODE=FAST
+ backstop)
+
+MIOpen builds kernels for every new conv shape: ~8 s per new VAE size on
+gfx906 (0.39 s steady at ~1400x850); resolution growth never repeats a size.
+Off: no per-size cost, ~1.2 s per decode (vae_shape_test.py). Applied in
+set_cudnn_benchmark so it is re-applied after custom-node imports.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ comfy/cli_args.py         | 1 +
+ comfy/model_management.py | 2 ++
+ 2 files changed, 3 insertions(+)
+
+diff --git a/comfy/cli_args.py b/comfy/cli_args.py
+index ba89699d..a2e41028 100644
+--- a/comfy/cli_args.py
++++ b/comfy/cli_args.py
+@@ -198,6 +198,7 @@ class PerformanceFeature(enum.Enum):
+     CublasOps = "cublas_ops"
+     AutoTune = "autotune"
+ 
++parser.add_argument("--disable-miopen", action="store_true", help="Don't use cuDNN/MIOpen: convolutions run through PyTorch's own im2col + BLAS path. On ROCm this avoids MIOpen's per-shape kernel builds (~8 s for each new VAE size on gfx906, and flaky), at ~3x steady-state VAE conv time.")
+ parser.add_argument("--fast", nargs="*", type=PerformanceFeature, help="Enable some untested and potentially quality deteriorating optimizations. This is used to test new features so using it might crash your comfyui. --fast with no arguments enables everything. You can pass a list specific optimizations if you only want to enable specific ones. Current valid optimizations: {}".format(" ".join(map(lambda c: c.value, PerformanceFeature))))
+ 
+ parser.add_argument("--debug-hang", action="store_true", help="Enable stack trace dumps on Ctrl-C for debugging hangs.")
+diff --git a/comfy/model_management.py b/comfy/model_management.py
+index f6d81186..6ff9340e 100644
+--- a/comfy/model_management.py
++++ b/comfy/model_management.py
+@@ -567,6 +567,8 @@ except:
+ def set_cudnn_benchmark():
+     if torch.cuda.is_available() and torch.backends.cudnn.is_available():
+         torch.backends.cudnn.benchmark = PerformanceFeature.AutoTune in args.fast
++        # --disable-miopen lives here too so it is re-applied after custom-node imports (see main.py)
++        torch.backends.cudnn.enabled = not args.disable_miopen
+ 
+ try:
+     if torch_version_numeric >= (2, 5):
+-- 
+2.54.0
+

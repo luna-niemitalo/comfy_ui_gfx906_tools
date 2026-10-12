@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+# experiment outputs (develop/out was 1.9 GB on 2026-10-12); deploy.nu moves them here from the old tree
+/develop/out/
+# deploy.nu links the OC content repo (tinker/succubus-oc) in here
+/develop/succubus_oc
+# reference images live in the OC content repo
+/develop/refs/

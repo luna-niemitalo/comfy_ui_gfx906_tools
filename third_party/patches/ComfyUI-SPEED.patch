@@ -1,0 +1,13 @@
+diff --git a/speed_sampler.py b/speed_sampler.py
+index 93ea18d..c59dbab 100644
+--- a/speed_sampler.py
++++ b/speed_sampler.py
+@@ -217,6 +217,8 @@ def sample_speed(
+     manual_sigmas: List[float] = None,
+     seed: int = 0,
+ ):
++    if _debug_enabled():
++        _debug_transition.counter = 0
+     """Comfy-compatible ``sample_*`` function."""
+     extra_args = {} if extra_args is None else extra_args
+     sampler_fn = getattr(kds, f"sample_{base_sampler}", None)

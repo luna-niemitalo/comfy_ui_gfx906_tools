@@ -1,0 +1,83 @@
+diff --git a/nodes/load_model.py b/nodes/load_model.py
+index c5c6dfb..a899258 100644
+--- a/nodes/load_model.py
++++ b/nodes/load_model.py
+@@ -517,7 +517,7 @@ class DownloadAndLoadDepthAnythingV3Model(io.ComfyNode):
+ 
+     @classmethod
+     def execute(cls, model, precision="auto", attention="auto"):
+-        device = mm.get_torch_device()
++        device = mm.get_torch_device(True)
+ 
+         # Determine dtype
+         if precision == "auto":
+@@ -581,7 +581,7 @@ class DownloadAndLoadDepthAnythingV3Model(io.ComfyNode):
+         # Wrap in ModelPatcher for ComfyUI memory management
+         patcher = comfy.model_patcher.ModelPatcher(
+             loaded_model,
+-            load_device=mm.get_torch_device(),
++            load_device=mm.get_torch_device(True),
+             offload_device=mm.unet_offload_device(),
+         )
+ 
+@@ -733,7 +733,7 @@ class LoadSALADModel(io.ComfyNode):
+         salad_nn = _build_salad_model(ckpt_path)
+         patcher = comfy.model_patcher.ModelPatcher(
+             salad_nn,
+-            load_device=mm.get_torch_device(),
++            load_device=mm.get_torch_device(True),
+             offload_device=mm.unet_offload_device(),
+         )
+ 
+diff --git a/nodes/nodes_3d.py b/nodes/nodes_3d.py
+index 980be20..5792542 100644
+--- a/nodes/nodes_3d.py
++++ b/nodes/nodes_3d.py
+@@ -1031,7 +1031,7 @@ Output: GLB file path
+ 
+         # Move to GPU for fast mesh construction
+         import comfy.model_management as mm
+-        device = mm.get_torch_device()
++        device = mm.get_torch_device(True)
+         depth_map = depth_map.to(device)
+         valid_mask = valid_mask.to(device)
+         if colors is not None:
+diff --git a/nodes/nodes_inference.py b/nodes/nodes_inference.py
+index aeae076..b5ae6da 100644
+--- a/nodes/nodes_inference.py
++++ b/nodes/nodes_inference.py
+@@ -75,7 +75,7 @@ Connect only the outputs you need - unused outputs are simply ignored.""",
+     @classmethod
+     def execute(cls, da3_model, images, normalization_mode="V2-Style", camera_params=None,
+                 resize_method="resize", invert_depth=False, keep_model_size=False):
+-        device = mm.get_torch_device()
++        device = mm.get_torch_device(True)
+ 
+         # da3_model is now a ModelPatcher — load to GPU via ComfyUI memory management
+         mm.load_models_gpu([da3_model])
+diff --git a/nodes/nodes_multiview.py b/nodes/nodes_multiview.py
+index 21b9739..78db00c 100644
+--- a/nodes/nodes_multiview.py
++++ b/nodes/nodes_multiview.py
+@@ -66,7 +66,7 @@ All images must have the same resolution. Higher N = more VRAM but better consis
+         if images is None or images.shape[0] == 0:
+             raise ValueError("No input provided. Connect 'images' input.")
+ 
+-        device = mm.get_torch_device()
++        device = mm.get_torch_device(True)
+         mm.load_models_gpu([da3_model])
+         model = da3_model.model
+         dtype = da3_model.model_options.get("da3_dtype", torch.float16)
+diff --git a/nodes/streaming/node.py b/nodes/streaming/node.py
+index 1c2fc33..0f30d19 100644
+--- a/nodes/streaming/node.py
++++ b/nodes/streaming/node.py
+@@ -178,7 +178,7 @@ class DepthAnythingV3_Streaming(io.ComfyNode):
+         logger.info(f"Streaming: {num_views} frames, {orig_H}x{orig_W}, {float(fps):.2f} fps")
+ 
+         # Get model and device
+-        device = mm.get_torch_device()
++        device = mm.get_torch_device(True)
+ 
+         _vram_debug("before_model_load", device)
+         _tensor_debug("raw_video_frames", images)

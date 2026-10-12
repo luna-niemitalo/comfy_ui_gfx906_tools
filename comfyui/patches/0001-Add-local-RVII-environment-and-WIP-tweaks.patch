@@ -1,0 +1,316 @@
+From 07187c2dcd7729e483f39584085e04152618d2cf Mon Sep 17 00:00:00 2001
+From: Luna Niemitalo <luna.niemitalo@gmail.com>
+Date: Mon, 28 Sep 2026 20:06:37 +0300
+Subject: [PATCH 1/5] Add local RVII environment and WIP tweaks
+
+Nix flake + envrc, run.nu launcher, extra requirements, gpu_profile hook,
+noflash_attention import, and debug prints in model loading.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ .gitignore                     |   7 ++
+ comfy/model_management.py      |   6 +-
+ comfy/sd.py                    |   4 +
+ comfy/utils.py                 |   6 +-
+ extra_model_paths.yaml.example | 161 +++++++++++++++++++++++++++++++++
+ main.py                        |   3 +-
+ requirements.txt               |   3 -
+ 7 files changed, 184 insertions(+), 6 deletions(-)
+
+diff --git a/.gitignore b/.gitignore
+index fc426eda..44227215 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -24,3 +24,10 @@ web_custom_versions/
+ filtered-openapi.yaml
+ uv.lock
+ .comfy_environment
++dependencies
++/develop/
++.direnv
++.coverage*
++sdpa
++*.old
++*.bak
+\ No newline at end of file
+diff --git a/comfy/model_management.py b/comfy/model_management.py
+index 4ea7cbae..f6d81186 100644
+--- a/comfy/model_management.py
++++ b/comfy/model_management.py
+@@ -192,7 +192,9 @@ def is_wsl():
+         return True
+     return False
+ 
+-def get_torch_device():
++def get_torch_device(force_cpu=False):
++    if force_cpu:
++        return torch.device("cpu")
+     global directml_enabled
+     global cpu_state
+     if directml_enabled:
+@@ -483,7 +485,9 @@ AMD_ENABLE_MIOPEN_ENV = 'COMFYUI_ENABLE_MIOPEN'
+ 
+ try:
+     if is_amd():
++        print("Checking AMD architecture for optimal settings...")
+         arch = torch.cuda.get_device_properties(get_torch_device()).gcnArchName.split(':')[0]
++        print("Detected AMD architecture: {}".format(arch))
+         if not (any((a in arch) for a in AMD_RDNA2_AND_OLDER_ARCH)):
+             if os.getenv(AMD_ENABLE_MIOPEN_ENV) != '1':
+                 torch.backends.cudnn.enabled = False  # Seems to improve things a lot on AMD
+diff --git a/comfy/sd.py b/comfy/sd.py
+index 1023ad9e..a7042623 100644
+--- a/comfy/sd.py
++++ b/comfy/sd.py
+@@ -981,6 +981,8 @@ class VAE:
+                     self.memory_used_encode = lambda shape, dtype: (700 * (max(1, (shape[-3] ** 0.66 * 0.11)) * shape[-2] * shape[-1]) * model_management.dtype_size(dtype))
+                     self.memory_used_decode = lambda shape, dtype: (50 * (max(1, (shape[-3] ** 0.65 * 0.26)) * shape[-2] * shape[-1] * 32 * 32) * model_management.dtype_size(dtype))
+             elif "vocoder.resblocks.0.convs1.0.weight" in sd or "vocoder.vocoder.resblocks.0.convs1.0.weight" in sd: # LTX Audio
++                print(Warning("Audio not supported"))
++                pass
+                 sd = comfy.utils.state_dict_prefix_replace(sd, {"audio_vae.": "autoencoder."})
+                 self.first_stage_model = comfy.ldm.lightricks.vae.audio_vae.AudioVAE(metadata=metadata)
+                 self.memory_used_encode = lambda shape, dtype: (shape[2] * 330) * model_management.dtype_size(dtype)
+@@ -999,6 +1001,8 @@ class VAE:
+                 self.disable_offload = True
+                 self.extra_1d_channel = 16
+             elif "decoder.layers.3.transformers.0.pre_norm.alpha" in sd:  # Stable Audio 3 VAE
++                print(Warning("Audio not supported"))
++                pass
+                 if "decoder.layers.3.transformers.11.self_attn.to_out.weight" in sd:
+                     config = {"channels": 256, "transformer_depths": 12, "sinusoidal_blocks": 8,
+                               "sliding_window": [1, 1], "decoder_conv_mapping": False,
+diff --git a/comfy/utils.py b/comfy/utils.py
+index 573a9e45..05fb956d 100644
+--- a/comfy/utils.py
++++ b/comfy/utils.py
+@@ -157,6 +157,10 @@ def load_safetensors(ckpt):
+ 
+ 
+ def load_torch_file(ckpt, safe_load=False, device=None, return_metadata=False):
++    print(ckpt)
++    import os
++    cwd = os.getcwd()
++    print("Current Working Directory:", cwd)
+     if device is None:
+         device = torch.device("cpu")
+     metadata = None
+@@ -167,7 +171,7 @@ def load_torch_file(ckpt, safe_load=False, device=None, return_metadata=False):
+                 if not return_metadata:
+                     metadata = None
+             else:
+-                with safetensors.safe_open(ckpt, framework="pt", device=device.type) as f:
++                with safetensors.safe_open(ckpt, framework="pt", device="cpu") as f:
+                     sd = {}
+                     for k in f.keys():
+                         tensor = f.get_tensor(k)
+diff --git a/extra_model_paths.yaml.example b/extra_model_paths.yaml.example
+index 755b8d12..0ef8eddc 100644
+--- a/extra_model_paths.yaml.example
++++ b/extra_model_paths.yaml.example
+@@ -3,6 +3,167 @@
+ #config for comfyui
+ #your base path should be either an existing comfy install or a central folder where you store all of your models, loras, etc.
+ 
++REF for target
++# /media/luna/models
++# ├── adetailer
++# ├── BLIP
++# ├── checkpoints
++# │   ├── 1sdxl
++# │   ├── 2sdxl_turbo
++# │   ├── 3new
++# │   ├── 4flux
++# │   ├── 6DreamShaper
++# │   └── Flux
++# ├── clip
++# ├── clip_vision
++# ├── Codeformer
++# ├── configs
++# ├── controlnet
++# ├── deepbooru
++# ├── deepbump
++# ├── diffusers
++# │   └── geowizard
++# │       ├── .cache
++# │       │   └── huggingface
++# │       │       └── download
++# │       │           ├── feature_extractor
++# │       │           ├── image_encoder
++# │       │           ├── scheduler
++# │       │           ├── unet
++# │       │           └── unet_v2
++# │       ├── feature_extractor
++# │       ├── image_encoder
++# │       ├── scheduler
++# │       ├── unet
++# │       └── unet_v2
++# ├── diffusion_models
++# ├── downloads
++# ├── dreambooth
++# ├── embeddings
++# │   └── SD1.5
++# ├── Embeddings
++# ├── ESRGAN
++# ├── GFPGAN
++# ├── gligen
++# ├── hypernetworks
++# ├── input
++# ├── karlo
++# ├── LDSR
++# ├── Lora
++# │   ├── 1Flux
++# │   ├── 1SDXL
++# │   ├── 9Classic
++# │   └── ZiT
++# ├── luts
++# ├── LyCORIS
++# ├── mmdet
++# │   ├── bbox
++# │   └── segm
++# ├── model_patches
++# ├── non-image-gen
++# │   ├── bartowski
++# │   │   └── TheDrummer_Magidonia-24B-v4.2.0-GGUF
++# │   ├── calcuis
++# │   │   ├── ace-gguf
++# │   │   └── vibevoice-gguf
++# │   ├── DavidAU
++# │   │   ├── L3.2-8X3B-MOE-Dark-Champion-Inst-18.4B-uncen-ablit_D_AU
++# │   │   └── OpenAi-GPT-oss-20b-abliterated-uncensored-NEO-Imatrix-gguf
++# │   ├── gpustack
++# │   │   └── bge-m3-GGUF
++# │   ├── hf_cache
++# │   │   ├── .locks
++# │   │   │   └── models--nvidia--diar_streaming_sortformer_4spk-v2
++# │   │   ├── nvidia
++# │   │   │   └── diar_streaming_sortformer_4spk-v2
++# │   │   │       ├── .cache
++# │   │   │       │   └── huggingface
++# │   │   │       │       └── download
++# │   │   │       │           └── figures
++# │   │   │       └── figures
++# │   │   └── tencent
++# │   │       └── Hunyuan3D-Part
++# │   │           ├── .cache
++# │   │           │   └── huggingface
++# │   │           │       └── download
++# │   │           │           ├── conditioner
++# │   │           │           ├── images
++# │   │           │           ├── model
++# │   │           │           ├── p3sam
++# │   │           │           ├── scheduler
++# │   │           │           └── shapevae
++# │   │           ├── conditioner
++# │   │           ├── images
++# │   │           ├── model
++# │   │           ├── p3sam
++# │   │           ├── scheduler
++# │   │           └── shapevae
++# │   ├── huihui-ai
++# │   │   └── Huihui-gpt-oss-20b-BF16-abliterated-v2
++# │   ├── Intel
++# │   │   └── GLM-4.6-REAP-218B-A32B-FP8-gguf-q2ks-mixed-AutoRound
++# │   ├── lmstudio-community
++# │   │   ├── gpt-oss-20b-GGUF
++# │   │   ├── Magistral-Small-2509-GGUF
++# │   │   ├── Qwen3-0.6B-GGUF
++# │   │   ├── Qwen3-14B-GGUF
++# │   │   ├── Qwen3-30B-A3B-GGUF
++# │   │   ├── Qwen3-32B-GGUF
++# │   │   ├── Qwen3-4B-Thinking-2507-GGUF
++# │   │   ├── Qwen3-8B-GGUF
++# │   │   ├── Qwen3-Coder-30B-A3B-Instruct-GGUF
++# │   │   ├── Qwen3-VL-8B-Instruct-GGUF
++# │   │   └── Seed-OSS-36B-Instruct-GGUF
++# │   ├── mistralai
++# │   │   └── Voxtral-Small-24B-2507
++# │   ├── nomic-ai
++# │   │   └── nomic-embed-text-v2-moe-GGUF
++# │   ├── oss120b
++# │   ├── Qwen
++# │   │   ├── Qwen3-Embedding-0.6B-GGUF
++# │   │   └── Qwen3-Embedding-8B-GGUF
++# │   ├── Qwen2.5
++# │   ├── Qwen3.5
++# │   │   └── Uncencored
++# │   ├── sabafallah
++# │   │   └── llama-nemotron-embed-1b-v2-GGUF
++# │   ├── TheBloke
++# │   │   ├── EstopianMaid-13B-GGUF
++# │   │   ├── TheBloke_Wizard-Vicuna-13B-Uncensored-SuperHOT-8K-GPTQ
++# │   │   ├── Wizard-Vicuna-13B-Uncensored
++# │   │   └── Wizard-Vicuna-30B-Uncensored
++# │   └── vito95311
++# │       └── Qwen3-Omni-30B-A3B-Thinking-GGUF-INT8FP16
++# ├── ollama
++# │   ├── blobs
++# │   └── manifests  [error opening dir]
++# ├── photomaker
++# ├── poses
++# ├── rams
++# ├── RealESRGAN
++# ├── sam3
++# │   └── .cache
++# │       └── huggingface
++# │           └── download
++# ├── Stable-Diffusion
++# ├── style_models
++# ├── SwinIR
++# ├── tensorrt
++# ├── text_encoders
++# │   └── t5
++# ├── .Trash-1000
++# │   ├── files
++# │   └── info
++# ├── u2net
++# ├── unet
++# ├── upscale_models
++# ├── vae
++# ├── VAE
++# ├── vae_approx
++# ├── VAE-approx
++# └── VAE-taesd
++
++
+ #comfyui:
+ #     base_path: path/to/comfyui/
+ #     # You can use is_default to mark that these folders should be listed first, and used as the default dirs for eg downloads
+diff --git a/main.py b/main.py
+index af82e310..6ec76b3e 100644
+--- a/main.py
++++ b/main.py
+@@ -245,7 +245,7 @@ import gc
+ if 'torch' in sys.modules:
+     logging.warning("WARNING: Potential Error in code: Torch already imported, torch should never be imported before this point.")
+ 
+-
++import noflash_attention  # auto-patches SDPA — done
+ import comfy.utils
+ 
+ import execution
+@@ -564,6 +564,7 @@ def start_comfyui(asyncio_loop=None):
+     # Returning these so that other code can integrate with the ComfyUI loop and server
+     return asyncio_loop, prompt_server, start_all
+ 
++from gpu_profile import start_profiler, dump_profiler
+ 
+ if __name__ == "__main__":
+     # Running directly, just start ComfyUI.
+diff --git a/requirements.txt b/requirements.txt
+index ca526554..0ea7fe0b 100644
+--- a/requirements.txt
++++ b/requirements.txt
+@@ -1,9 +1,6 @@
+ comfyui-frontend-package==1.53.6
+ comfyui-workflow-templates==0.11.70
+ comfyui-embedded-docs==0.5.12
+-torch
+-torchsde
+-torchvision
+ numpy>=1.25.0
+ einops
+ transformers>=4.50.3
+-- 
+2.54.0
+

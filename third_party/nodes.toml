@@ -1,0 +1,87 @@
+# Third-party custom nodes: deploy.nu clones each at its pinned commit and applies
+# third_party/patches/<name>.patch if present (our local fixes). Not our code: not vendored.
+
+[[node]]
+name = "ComfyUI-ConditioningKrea2Rebalance"
+url = "https://github.com/nova452/ComfyUI-ConditioningKrea2Rebalance.git"
+commit = "9ab5315e6aa8ec8cd14cc5354739d938c6fb101b"
+
+[[node]]
+name = "ComfyUI-DepthAnythingV2"
+url = "https://github.com/kijai/ComfyUI-DepthAnythingV2.git"
+commit = "553187872eeb1d52e50dc53209fa57e569609a72"
+
+[[node]]
+name = "ComfyUI-DepthAnythingV3"
+url = "https://github.com/PozzettiAndrea/ComfyUI-DepthAnythingV3.git"
+commit = "20053ca1a1ddf2351e75aacf29f7ac94291d715b"
+
+[[node]]
+name = "ComfyUI-Florence2"
+url = "https://github.com/kijai/ComfyUI-Florence2.git"
+commit = "d8cb44d9c89ba03e807734aa310b72468770fb8b"
+
+[[node]]
+name = "ComfyUI-Flux2Klein-Enhancer"
+url = "https://github.com/capitan01R/ComfyUI-Flux2Klein-Enhancer.git"
+commit = "343652039d8e92f73f8fac1211e1be66e624708b"
+
+[[node]]
+name = "ComfyUI-ForLoops"
+url = "https://github.com/jeankassio/ComfyUI-ForLoops.git"
+commit = "8e2827c711bd2e3f9f179c9b00532b3ed49f427c"
+
+[[node]]
+name = "ComfyUI-GGUF"
+url = "https://github.com/city96/ComfyUI-GGUF.git"
+commit = "6ea2651e7df66d7585f6ffee804b20e92fb38b8a"
+
+[[node]]
+name = "comfyui-krea2-controlnet"
+url = "https://github.com/facok/comfyui-krea2-controlnet.git"
+commit = "79ebfd3bd80d2180b334dd7ce57f3c9ddaa0848f"
+
+[[node]]
+name = "ComfyUI-Krea2-Projector-Tuner"
+url = "https://github.com/BlackSnowSkill/ComfyUI-Krea2-Projector-Tuner"
+commit = "24c891c5bd8cabbcd0b9a8e3be4c96c0bcc3de9e"
+
+[[node]]
+name = "ComfyUI-Krea2TextEncoder"
+url = "https://github.com/ethanfel/ComfyUI-Krea2TextEncoder.git"
+commit = "38da10b0d4655098d867c14af10093baa76a85c4"
+
+[[node]]
+name = "ComfyUI-MultiGPU"
+url = "https://github.com/pollockjj/ComfyUI-MultiGPU.git"
+commit = "b51c99a525e9607e43545ee2a8b7694c74a4775a"
+
+[[node]]
+name = "ComfyUI-PiD"
+url = "https://github.com/Merserk/ComfyUI-PiD.git"
+commit = "0ebab989ee57c92abe346e31aba33b920bb309f9"
+
+[[node]]
+name = "ComfyUI-RMBG"
+url = "https://github.com/1038lab/ComfyUI-RMBG.git"
+commit = "d7402513f23f58db7d56754b02a4f51a148b4941"
+
+[[node]]
+name = "ComfyUI-SAM3"
+url = "https://github.com/PozzettiAndrea/ComfyUI-SAM3.git"
+commit = "b3cf412bc2c6d608c0ace17b0a0a7eaa23a31374"
+
+[[node]]
+name = "comfyui_segment_anything"
+url = "https://github.com/storyicon/comfyui_segment_anything.git"
+commit = "ab6395596399d5048639cdab7e44ec9fae857a93"
+
+[[node]]
+name = "ComfyUI-SPEED"
+url = "https://github.com/ruwwww/ComfyUI-SPEED.git"
+commit = "13418a080c2a5d5c17f7025fc91990a9dc68bd91"
+
+[[node]]
+name = "ComfyUI_TiledKSampler"
+url = "https://github.com/BlenderNeko/ComfyUI_TiledKSampler.git"
+commit = "2fd9b05d97ecffc604c642ffbb40220b182966b2"

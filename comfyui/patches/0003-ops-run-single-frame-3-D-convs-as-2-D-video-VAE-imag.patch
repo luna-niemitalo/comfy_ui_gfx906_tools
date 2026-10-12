@@ -1,0 +1,38 @@
+From 475c645ec2b2a22e0229d83b35b786146b500b5c Mon Sep 17 00:00:00 2001
+From: Luna Niemitalo <luna.niemitalo@gmail.com>
+Date: Tue, 29 Sep 2026 09:58:49 +0300
+Subject: [PATCH 3/5] ops: run single-frame 3-D convs as 2-D (video-VAE image
+ decode 2.3-2.4x on gfx906)
+
+Wan 2.1 / Qwen-Image VAE (Krea2) decodes T=1 latents through CausalConv3d,
+which already slices the kernel to one frame; MIOpen still ran it as 3-D.
+Tiled fp32 decode: 1024x576 0.61 -> 0.25 s, 2560x1440 3.93 -> 1.65 s,
+3840x2160 9.24 -> 4.04 s; output within 4e-6. fp16 VAE was slower on gfx906.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ comfy/ops.py | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/comfy/ops.py b/comfy/ops.py
+index 860e09ea..ce8d0261 100644
+--- a/comfy/ops.py
++++ b/comfy/ops.py
+@@ -614,6 +614,14 @@ class disable_weight_init:
+         def _conv_forward(self, input, weight, bias, autopad=None, *args, **kwargs):
+             if autopad == "causal_zero":
+                 weight = weight[:, :, -input.shape[2]:, :, :]
++            if input.shape[2] == 1 and weight.shape[2] == 1 and self.padding[0] == 0:
++                # One frame through a one-frame kernel (image VAE decode of a video VAE,
++                # e.g. Wan 2.1 / Qwen-Image for Krea2) is a 2-D conv. MIOpen still runs
++                # it as 3-D: 2.3-2.4x slower on gfx906 at 1024x576-4K, same result
++                # (fp32 decode within 4e-6; develop/experiments/2026-09-29/vae_bench.py,
++                # check_conv2d_patch.py).
++                return torch.nn.functional.conv2d(input[:, :, 0], weight[:, :, 0], bias, self.stride[1:],
++                                                  self.padding[1:], self.dilation[1:], self.groups).unsqueeze(2)
+             if NVIDIA_MEMORY_CONV_BUG_WORKAROUND and weight.dtype in (torch.float16, torch.bfloat16):
+                 out = torch.cudnn_convolution(input, weight, self.padding, self.stride, self.dilation, self.groups, benchmark=False, deterministic=False, allow_tf32=True)
+                 if bias is not None:
+-- 
+2.54.0
+
