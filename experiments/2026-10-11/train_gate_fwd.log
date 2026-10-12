@@ -1,0 +1,42 @@
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (606738 > 131072). Running this sequence through the model will result in indexing errors
+{"train_seqs": 296, "val_seqs": 362, "seq": 2048}
+[92mSuccessfully preprocessed all matching files.[0m
+Checking AMD architecture for optimal settings...
+Detected AMD architecture: gfx906
+{"arm": "int4_fwd_bwd_kernel", "step": 0, "val": 1.099}
+{"arm": "int4_fwd_bwd_kernel", "step": 5, "train": 1.5741, "s_per_step": 12.54, "skipped": 0}
+{"arm": "int4_fwd_bwd_kernel", "step": 10, "train": 1.4972, "s_per_step": 12.47, "skipped": 0}
+{"arm": "int4_fwd_bwd_kernel", "step": 15, "train": 1.399, "s_per_step": 12.51, "skipped": 0}
+{"arm": "int4_fwd_bwd_kernel", "step": 20, "train": 1.2571, "s_per_step": 12.52, "skipped": 0}
+{"arm": "int4_fwd_bwd_kernel", "step": 25, "train": 1.5221, "s_per_step": 12.53, "skipped": 0}
+{"arm": "int4_fwd_bwd_kernel", "step": 25, "val": 0.9935}
+{"arm": "int4_fwd_bwd_kernel", "step": 30, "train": 1.6165, "s_per_step": 13.39, "skipped": 0}
+{"arm": "int4_fwd_bwd_kernel", "step": 35, "train": 1.4024, "s_per_step": 13.29, "skipped": 0}
+{"arm": "int4_fwd_bwd_kernel", "step": 40, "train": 1.0103, "s_per_step": 13.21, "skipped": 0}
+{"arm": "int4_fwd_bwd_kernel", "step": 45, "train": 1.1464, "s_per_step": 13.15, "skipped": 0}
+{"arm": "int4_fwd_bwd_kernel", "step": 50, "train": 0.8549, "s_per_step": 13.1, "skipped": 0}
+{"arm": "int4_fwd_bwd_kernel", "step": 50, "val": 0.9681}
+{"arm": "int4_fwd_bwd_kernel", "step": 55, "train": 0.9248, "s_per_step": 13.52, "skipped": 0}
+{"arm": "int4_fwd_bwd_kernel", "step": 60, "train": 1.45, "s_per_step": 13.46, "skipped": 0}
+{"arm": "int4_fwd_bwd_kernel", "step": 65, "train": 0.6837, "s_per_step": 13.41, "skipped": 0}
+{"arm": "int4_fwd_bwd_kernel", "step": 70, "train": 1.3089, "s_per_step": 13.37, "skipped": 0}
+{"arm": "int4_fwd_bwd_kernel", "step": 75, "train": 1.4317, "s_per_step": 13.34, "skipped": 0}
+{"arm": "int4_fwd_bwd_kernel", "step": 75, "val": 0.9504}
+{"arm": "int4_fwd_bwd_kernel", "step": 80, "train": 0.9595, "s_per_step": 13.62, "skipped": 0}
+{"arm": "int4_fwd_bwd_kernel", "step": 85, "train": 1.2623, "s_per_step": 13.57, "skipped": 0}
+{"arm": "int4_fwd_bwd_kernel", "step": 90, "train": 1.3975, "s_per_step": 13.52, "skipped": 0}
+{"arm": "int4_fwd_bwd_kernel", "step": 95, "train": 1.2643, "s_per_step": 13.48, "skipped": 0}
+{"arm": "int4_fwd_bwd_kernel", "step": 100, "train": 1.6363, "s_per_step": 13.45, "skipped": 0}
+{"arm": "int4_fwd_bwd_kernel", "step": 100, "val": 0.9397}
+{"arm": "int4_fwd_bwd_kernel", "step": 105, "train": 1.1991, "s_per_step": 13.66, "skipped": 0}
+{"arm": "int4_fwd_bwd_kernel", "step": 110, "train": 1.0526, "s_per_step": 13.62, "skipped": 0}
+{"arm": "int4_fwd_bwd_kernel", "step": 115, "train": 1.5465, "s_per_step": 13.6, "skipped": 0}
+{"arm": "int4_fwd_bwd_kernel", "step": 120, "train": 0.751, "s_per_step": 13.56, "skipped": 0}
+{"arm": "int4_fwd_bwd_kernel", "step": 125, "train": 1.2567, "s_per_step": 13.53, "skipped": 0}
+{"arm": "int4_fwd_bwd_kernel", "step": 125, "val": 0.932}
+{"arm": "int4_fwd_bwd_kernel", "step": 130, "train": 1.0893, "s_per_step": 13.69, "skipped": 0}
+{"arm": "int4_fwd_bwd_kernel", "step": 135, "train": 1.0197, "s_per_step": 13.66, "skipped": 0}
+{"arm": "int4_fwd_bwd_kernel", "step": 140, "train": 1.22, "s_per_step": 13.63, "skipped": 0}
+{"arm": "int4_fwd_bwd_kernel", "step": 145, "train": 1.168, "s_per_step": 13.6, "skipped": 0}
+{"arm": "int4_fwd_bwd_kernel", "step": 150, "train": 1.1132, "s_per_step": 13.57, "skipped": 0}
+{"arm": "int4_fwd_bwd_kernel", "step": 150, "val": 0.9335}

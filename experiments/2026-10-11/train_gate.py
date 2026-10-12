@@ -24,6 +24,7 @@ Usage (repo root, ~1 h for 3 arms):
         direnv exec . python develop/experiments/2026-10-11/train_gate.py
 """
 import argparse
+import gc
 import glob
 import importlib
 import json
@@ -49,6 +50,9 @@ LOSS_SCALE = 1024.0  # fp16 grads of a mean loss underflow without it; quantizat
 ARMS = {
     "fp16": None,
     "int4_b16_kernel": "kernel",  # the recipe through the real kernels (train_linear.py), not emulated
+    "int4_fwd_bwd_kernel": "kernel_fwd",  # + int4 forward (x, W block-16 along K, round to nearest)
+    # same numerics as int4_fwd_bwd_kernel; frozen layers 20-31 stored as FrozenInt4Linear (no fp16 weights)
+    "int4_frozen_kernel": "kernel_frozen",
     "int4_b16_sr": (16, True, True),  # the recipe (name kept from the first run's log)
     "int4_b32_rtn": (32, False, False),  # our current kernel's numerics
     "int4_b16_rtn": (16, False, False),  # ablation: neither
@@ -84,11 +88,17 @@ class QuantBwdLinear(torch.autograd.Function):
 
 def patch_linears(model, cfg):
     kernel_linear = None
-    if cfg == "kernel":
+    if cfg in ("kernel", "kernel_fwd", "kernel_frozen"):
         load_node_package()
-        kernel_linear = importlib.import_module("gfx906int4.train_linear").linear
+        tl = importlib.import_module("gfx906int4.train_linear")
+        tl._seed[0] = 0  # SR seeds count per process: restart them so kernel arms in one process compare exactly
+        kernel_linear = lambda x, w: tl.linear(x, w, int4_fprop=cfg != "kernel")
     for li in QUANT_BWD:
         layer = model.model.layers[li]
+        for parent in (layer.self_attn, layer.mlp):
+            for name, mod in list(parent.named_children()):
+                if cfg == "kernel_frozen" and li not in TRAINED and isinstance(mod, torch.nn.Linear):
+                    setattr(parent, name, tl.FrozenInt4Linear(mod))
         for mod in [*layer.self_attn.children(), *layer.mlp.children()]:
             if not isinstance(mod, torch.nn.Linear):
                 continue
@@ -121,8 +131,9 @@ def run_arm(arm, args, train, val, device):
     torch.manual_seed(0)
     model = load_model(device)
     model.config.use_cache = False
-    if ARMS[arm] == "kernel":
-        patch_linears(model, "kernel")
+    if ARMS[arm] in ("kernel", "kernel_fwd", "kernel_frozen"):
+        patch_linears(model, ARMS[arm])
+        torch.cuda.empty_cache()
     elif ARMS[arm]:
         block, sr, rht = ARMS[arm]
         cfg = {"block": block, "sr": sr, "rht": rht,
@@ -143,7 +154,9 @@ def run_arm(arm, args, train, val, device):
                                    v[None].to(device)).item() for v in val[: args.val_seqs]]
         return sum(losses) / len(losses)
 
-    log = {"arm": arm, "step": 0, "val": round(evaluate(), 4)}
+    resident = torch.cuda.memory_allocated() / 2**30
+    torch.cuda.reset_peak_memory_stats()
+    log = {"arm": arm, "step": 0, "val": round(evaluate(), 4), "resident_gb": round(resident, 2)}
     print(json.dumps(log), flush=True)
     t0, skipped = time.perf_counter(), 0
     for step in range(1, args.steps + 1):
@@ -167,11 +180,13 @@ def run_arm(arm, args, train, val, device):
             p.grad = None
         if step % args.log_every == 0:
             print(json.dumps({"arm": arm, "step": step, "train": round(loss.item(), 4),
-                              "s_per_step": round((time.perf_counter() - t0) / step, 2), "skipped": skipped}),
+                              "s_per_step": round((time.perf_counter() - t0) / step, 2), "skipped": skipped,
+                              "peak_gb": round(torch.cuda.max_memory_allocated() / 2**30, 2)}),
                   flush=True)
         if step % args.eval_every == 0:
             print(json.dumps({"arm": arm, "step": step, "val": round(evaluate(), 4)}), flush=True)
     del model, opt, master
+    gc.collect()  # patched forwards close over their modules (cycles): without it the next arm starts with this one's weights
     torch.cuda.empty_cache()
 
 

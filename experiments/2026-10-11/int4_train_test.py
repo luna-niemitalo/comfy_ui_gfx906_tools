@@ -10,6 +10,8 @@ train_linear.py).
 4. block-16 GEMM vs fp32 matmul of the dequantized operands
 5. train_linear's backward vs exact fp32 grads, next to the emulated recipe's error
 6. speed: dgrad + wgrad per 4B shape, int4 path (quantize + GEMM) vs torch fp16
+7. full: forward + backward per 4B shape -- fp16, int4 backward, int4 forward + backward
+   (and the int4 forward's error vs exact)
 
 Usage (repo root):
     nu ~/dev/mantlecore/tools/gpu_run.nu --card 0 --timeout 1800 -- \
@@ -145,10 +147,27 @@ def speed(linear, device):
              speedup=round(t16 / t4, 2))
 
 
+def full(linear, device):
+    for name, k, n in SHAPES_4B:
+        x = torch.randn(M_TOKENS, k, device=device, dtype=torch.float16).requires_grad_()
+        w = (torch.randn(n, k, device=device) * k**-0.5).half().requires_grad_()
+        dy = torch.randn(M_TOKENS, n, device=device, dtype=torch.float16)
+        exact = x.float() @ w.float().t()
+        paths = {"fp16": lambda: torch.nn.functional.linear(x, w), "int4_bwd": lambda: linear(x, w),
+                 "int4_fwd_bwd": lambda: linear(x, w, int4_fprop=True)}
+        flop = 3 * 2 * M_TOKENS * n * k
+        ms = {p: time_s(lambda f=f: torch.autograd.grad(f(), (x, w), dy)) * 1e3 for p, f in paths.items()}
+        emit(test="full fwd+bwd", shape=name, **{f"{p}_ms": round(t, 2) for p, t in ms.items()},
+             **{f"{p}_tflops": round(flop / t / 1e9, 1) for p, t in ms.items()},
+             speedup_int4_fwd_bwd=round(ms["fp16"] / ms["int4_fwd_bwd"], 2),
+             fprop_err=round(rel(linear(x, w, int4_fprop=True), exact), 4),
+             fp16_fprop_err=round(rel(torch.nn.functional.linear(x, w), exact), 5))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--ref-src", required=True)
-    parser.add_argument("--sections", default="regression,quant,gemm,linear,speed")
+    parser.add_argument("--sections", default="regression,quant,gemm,linear,speed,full")
     args = parser.parse_args()
     device = torch.device("cuda:0")
     torch.cuda.set_device(device)
@@ -171,6 +190,8 @@ def main():
         check_linear(linear, signs, device)
     if "speed" in sections:
         speed(linear, device)
+    if "full" in sections:
+        full(linear, device)
 
 
 if __name__ == "__main__":

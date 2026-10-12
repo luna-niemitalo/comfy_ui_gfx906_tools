@@ -1,0 +1,19 @@
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (606738 > 131072). Running this sequence through the model will result in indexing errors
+{"train_seqs": 296, "val_seqs": 362, "seq": 2048}
+[92mSuccessfully preprocessed all matching files.[0m
+Checking AMD architecture for optimal settings...
+Detected AMD architecture: gfx906
+{"arm": "int4_fwd_bwd_kernel", "step": 0, "val": 1.099, "resident_gb": 7.55}
+{"arm": "int4_fwd_bwd_kernel", "step": 5, "train": 1.5741, "s_per_step": 12.96, "skipped": 0, "peak_gb": 10.41}
+{"arm": "int4_fwd_bwd_kernel", "step": 10, "train": 1.4972, "s_per_step": 12.85, "skipped": 0, "peak_gb": 10.42}
+{"arm": "int4_fwd_bwd_kernel", "step": 15, "train": 1.399, "s_per_step": 12.81, "skipped": 0, "peak_gb": 10.42}
+{"arm": "int4_fwd_bwd_kernel", "step": 20, "train": 1.2571, "s_per_step": 12.78, "skipped": 0, "peak_gb": 10.42}
+{"arm": "int4_fwd_bwd_kernel", "step": 25, "train": 1.5221, "s_per_step": 12.78, "skipped": 0, "peak_gb": 10.42}
+{"arm": "int4_fwd_bwd_kernel", "step": 25, "val": 0.9935}
+{"arm": "int4_frozen_kernel", "step": 0, "val": 1.099, "resident_gb": 10.07}
+{"arm": "int4_frozen_kernel", "step": 5, "train": 1.5741, "s_per_step": 12.79, "skipped": 0, "peak_gb": 12.88}
+{"arm": "int4_frozen_kernel", "step": 10, "train": 1.4972, "s_per_step": 12.76, "skipped": 0, "peak_gb": 12.88}
+{"arm": "int4_frozen_kernel", "step": 15, "train": 1.399, "s_per_step": 12.73, "skipped": 0, "peak_gb": 12.88}
+{"arm": "int4_frozen_kernel", "step": 20, "train": 1.2571, "s_per_step": 12.73, "skipped": 0, "peak_gb": 12.88}
+{"arm": "int4_frozen_kernel", "step": 25, "train": 1.5221, "s_per_step": 12.96, "skipped": 0, "peak_gb": 12.88}
+{"arm": "int4_frozen_kernel", "step": 25, "val": 0.9935}

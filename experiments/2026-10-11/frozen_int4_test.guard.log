@@ -1,0 +1,32 @@
+gpu_run: card0 lock, HIP sees 0000:10:00.0 (hidden: 0000:0d:00.0), timeout 900 s, log none: no --log and no $MANTLECORE_LOG_DIR
+gpu_run: 2026-10-12 03:18:51 direnv exec /media/luna/work/tinker/ComfyUI sh -c python develop/experiments/2026-10-11/frozen_int4_test.py > develop/experiments/2026-10-11/frozen_int4_test.log 2>&1
+[0mdirenv: loading /media/luna/work/tinker/ComfyUI/.envrc
+[0mdirenv: using flake ./nix
+[0mdirenv: nix-direnv: Using cached dev shell
+ComfyUI ROCm 7.2.53211 shell (gfx906)
+hipcc: /nix/store/1rky1688rl9nahjqvkj54w7s75776nyc-clr-7.2.3/bin/hipcc
+HIP version: 7.2.53211-9999
+nixpkgs-AMD clang version 22.0.0 (https://github.com/ROCm/llvm-project/tree/rocm-7.2.3 rocm-7.2.3)
+Target: x86_64-unknown-linux-gnu
+Thread model: posix
+InstalledDir: /nix/store/ly700gf82nzmd5y8cyz14107d0ql3fib-rocm-toolchain/bin
+Configuration file: /nix/store/ly700gf82nzmd5y8cyz14107d0ql3fib-rocm-toolchain/bin/x86_64-unknown-linux-gnu.cfg
+
+[37mROCk module is loaded[0m
+=====================    
+HSA System Attributes    
+=====================    
+Runtime Version:         1.18
+Runtime Ext Version:     1.15
+System Timestamp Freq.:  1000.000000MHz
+Sig. Max Wait Duration:  18446744073709551615 (0xFFFFFFFFFFFFFFFF) (timestamp count)
+Machine Model:           LARGE                              
+System Endianness:       LITTLE                             
+
+ROCM_ROOT        = /nix/store/1rky1688rl9nahjqvkj54w7s75776nyc-clr-7.2.3
+HIPBLASLT_ROOT   = /nix/store/crybjwiwfklkrzcb7nhlysz686iabdkm-hipblaslt-7.2.3
+MIOPEN_ROOT      = /nix/store/2gaa43dswxr4vx1qm3fvx0zq8ispbkrg-miopen-7.2.3
+CPU BLAS (LP64)  = /nix/store/fjbvyzjcji3xyzj8n8q7jwfd6qgflii3-openblas-0.3.33/lib
+
+Ready.
+gpu_run: exit 0 after 1177.7 s, no kernel GPU errors

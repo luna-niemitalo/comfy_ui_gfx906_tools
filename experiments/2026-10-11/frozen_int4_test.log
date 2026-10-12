@@ -1,0 +1,7 @@
+[92mSuccessfully preprocessed all matching files.[0m
+Checking AMD architecture for optimal settings...
+Detected AMD architecture: gfx906
+{"shape": "qkv", "bit_identical": true, "weight_mb": {"fp16": 30.0, "frozen": 22.5}, "held_mb": {"fp16": 0.0, "requant": 20.0, "frozen": 0.0}, "fwd_dgrad_ms": {"fp16": 16.76, "requant": 12.5, "frozen": 12.82}}
+{"shape": "o", "bit_identical": true, "weight_mb": {"fp16": 20.0, "frozen": 15.0}, "held_mb": {"fp16": 0.0, "requant": 32.0, "frozen": 0.0}, "fwd_dgrad_ms": {"fp16": 13.06, "requant": 8.41, "frozen": 8.37}}
+{"shape": "gate_up", "bit_identical": true, "weight_mb": {"fp16": 95.0, "frozen": 71.2}, "held_mb": {"fp16": 0.0, "requant": 20.0, "frozen": 0.0}, "fwd_dgrad_ms": {"fp16": 58.46, "requant": 38.87, "frozen": 38.14}}
+{"shape": "down", "bit_identical": true, "weight_mb": {"fp16": 47.5, "frozen": 35.9}, "held_mb": {"fp16": 0.0, "requant": 76.0, "frozen": 0.0}, "fwd_dgrad_ms": {"fp16": 38.82, "requant": 19.27, "frozen": 19.43}}

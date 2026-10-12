@@ -196,6 +196,20 @@ a step.
   The kernel arm matches the emulation (differences = SR sample noise).
 - At this length and lr the ablations don't separate: RTN does as well as SR + RHT. SR's benefit
   (unbiased gradients) is a long-run effect; 150 steps can't show it. Keep the recipe for long runs.
+- **int4 forward too** (`int4_fwd_bwd_kernel`, x and W block-16 RTN along K, layers 16-31; val runs
+  through the int4 forward): 1.0990, 0.9935, 0.9681, 0.9504, 0.9397, 0.9320, 0.9335 at steps 0-150.
+  Gap to fp16: +0.032 at step 0 (the untrained model's cost), +0.030 / 0.029 / 0.030 / 0.025 / 0.022
+  / 0.024 -- the training recovers a little, not the gap. 10x the int4-backward arms' gap, as the
+  paper says: forward quantization is where the 4-bit loss lives. Linears fwd+bwd 1.24-1.62x fp16
+  (`int4_full_speed.log`; fprop error 12% per GEMM on random data vs 0.02%).
+- **Frozen weights stored int4** (`FrozenInt4Linear`: W along K + W^T along N, packed once at
+  load, fp16 freed; saves nothing fwd->bwd). `frozen_int4_test.py`: y and dx bit-identical to
+  requantize-per-call on all 4B shapes, same speed, weights -25% (fp32 scales: 1.5 B/param for two
+  copies). `int4_frozen_kernel` (layers 20-31 frozen int4) reproduces `int4_fwd_bwd_kernel` exactly
+  (train and val identical over 25 steps). Memory, alone in a process: resident 7.55 -> 6.99 GB,
+  peak 10.42 -> 9.86 GB (-0.56 GB, = the weight saving; the dropped saved-x doesn't lower the
+  peak, which sits elsewhere). Bigger savings need cheaper scales (fp16: 1.25 B/param, 8-bit: 1.06)
+  or more layers frozen.
 - Wall time per step (whole step incl. host optimizer, not a speed measurement): fp16 11.9 s,
   kernel 14.6 s, emulated 16 s. The kernel arm is SLOWER end to end here although the isolated
   dgrad+wgrad bench was 1.15-1.34x faster -- per-call W^T requantization and the quantizers
