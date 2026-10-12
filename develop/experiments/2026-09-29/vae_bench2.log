@@ -1,0 +1,45 @@
+[0mdirenv: loading /media/luna/work/tinker/ComfyUI/.envrc
+[0mdirenv: using flake ./nix
+[0mdirenv: nix-direnv: Using cached dev shell
+ComfyUI ROCm 7.2.53211 shell (gfx906)
+hipcc: /nix/store/mam4a3wdd1rls10jm1vvb3pw8lbz2ivr-clr-7.2.3/bin/hipcc
+HIP version: 7.2.53211-9999
+nixpkgs-AMD clang version 22.0.0 (https://github.com/ROCm/llvm-project/tree/rocm-7.2.3 rocm-7.2.3)
+Target: x86_64-unknown-linux-gnu
+Thread model: posix
+InstalledDir: /nix/store/sphzxfs5f2w29fx0fhs0pn42yyxfyp8h-rocm-toolchain/bin
+Configuration file: /nix/store/sphzxfs5f2w29fx0fhs0pn42yyxfyp8h-rocm-toolchain/bin/x86_64-unknown-linux-gnu.cfg
+
+[37mROCk module is loaded[0m
+=====================    
+HSA System Attributes    
+=====================    
+Runtime Version:         1.18
+Runtime Ext Version:     1.15
+System Timestamp Freq.:  1000.000000MHz
+Sig. Max Wait Duration:  18446744073709551615 (0xFFFFFFFFFFFFFFFF) (timestamp count)
+Machine Model:           LARGE                              
+System Endianness:       LITTLE                             
+
+ROCM_ROOT        = /nix/store/mam4a3wdd1rls10jm1vvb3pw8lbz2ivr-clr-7.2.3
+HIPBLASLT_ROOT   = /nix/store/8plqmf5xmyyzi90zvf8fp3322lr2brb4-hipblaslt-7.2.3
+MIOPEN_ROOT      = /nix/store/yq3iql1j2sqjdq1hgfn6i39l1z62idrq-miopen-7.2.3
+CPU BLAS (LP64)  = /nix/store/dmsl71kqvflbda92d4w0qzmjx1mqj1p6-openblas-0.3.33/lib
+
+Ready.
+Checking AMD architecture for optimal settings...
+Detected AMD architecture: gfx906
+/media/luna/models/vae/qwenImageVAE_qwenImageVAE.safetensors
+Current Working Directory: /media/luna/work/tinker/ComfyUI
+{"res": "1024x576", "dtype": "float32", "conv": "conv3d", "seconds": 0.61, "first_s": 1.71, "nan": false}
+{"res": "1024x576", "dtype": "float32", "conv": "conv2d", "seconds": 0.25, "first_s": 0.27, "nan": false, "max_diff": 0.0, "mean_diff": 0.0, "worst_at": [0, 0, 182, 317, 1], "px_over_0_05": 0}
+{"res": "2560x1440", "dtype": "float32", "conv": "conv3d", "seconds": 3.93, "first_s": 3.86, "nan": false}
+{"res": "2560x1440", "dtype": "float32", "conv": "conv2d", "seconds": 1.65, "first_s": 1.65, "nan": false, "max_diff": 0.0, "mean_diff": 0.0, "worst_at": [0, 0, 1156, 301, 2], "px_over_0_05": 0}
+{"res": "3840x2160", "dtype": "float32", "conv": "conv3d", "seconds": 9.24, "first_s": 9.07, "nan": false}
+{"res": "3840x2160", "dtype": "float32", "conv": "conv2d", "seconds": 4.04, "first_s": 4.02, "nan": false, "max_diff": 0.0, "mean_diff": 0.0, "worst_at": [0, 0, 1073, 956, 1], "px_over_0_05": 0}
+{"res": "1024x576", "dtype": "float16", "conv": "conv3d", "seconds": 0.56, "first_s": 0.76, "nan": false, "max_diff": 0.0035, "mean_diff": 0.00011, "worst_at": [0, 0, 477, 47, 2], "px_over_0_05": 0}
+{"res": "1024x576", "dtype": "float16", "conv": "conv2d", "seconds": 0.39, "first_s": 0.42, "nan": false, "max_diff": 0.0035, "mean_diff": 0.00011, "worst_at": [0, 0, 477, 47, 2], "px_over_0_05": 0}
+{"res": "2560x1440", "dtype": "float16", "conv": "conv3d", "seconds": 3.49, "first_s": 3.44, "nan": false, "max_diff": 0.0087, "mean_diff": 0.00011, "worst_at": [0, 0, 963, 1774, 2], "px_over_0_05": 0}
+{"res": "2560x1440", "dtype": "float16", "conv": "conv2d", "seconds": 2.47, "first_s": 2.47, "nan": false, "max_diff": 0.0087, "mean_diff": 0.00011, "worst_at": [0, 0, 963, 1774, 2], "px_over_0_05": 0}
+{"res": "3840x2160", "dtype": "float16", "conv": "conv3d", "seconds": 7.87, "first_s": 7.82, "nan": false, "max_diff": 0.0046, "mean_diff": 0.00011, "worst_at": [0, 0, 450, 2392, 2], "px_over_0_05": 0}
+{"res": "3840x2160", "dtype": "float16", "conv": "conv2d", "seconds": 5.64, "first_s": 5.58, "nan": false, "max_diff": 0.0046, "mean_diff": 0.00011, "worst_at": [0, 0, 450, 2392, 2], "px_over_0_05": 0}

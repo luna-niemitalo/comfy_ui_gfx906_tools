@@ -1,0 +1,113 @@
+[0mdirenv: loading /media/luna/work/tinker/ComfyUI/.envrc
+[0mdirenv: using flake ./nix
+[0mdirenv: nix-direnv: Using cached dev shell
+ComfyUI ROCm 7.2.53211 shell (gfx906)
+hipcc: /nix/store/mam4a3wdd1rls10jm1vvb3pw8lbz2ivr-clr-7.2.3/bin/hipcc
+HIP version: 7.2.53211-9999
+nixpkgs-AMD clang version 22.0.0 (https://github.com/ROCm/llvm-project/tree/rocm-7.2.3 rocm-7.2.3)
+Target: x86_64-unknown-linux-gnu
+Thread model: posix
+InstalledDir: /nix/store/sphzxfs5f2w29fx0fhs0pn42yyxfyp8h-rocm-toolchain/bin
+Configuration file: /nix/store/sphzxfs5f2w29fx0fhs0pn42yyxfyp8h-rocm-toolchain/bin/x86_64-unknown-linux-gnu.cfg
+
+[37mROCk module is loaded[0m
+=====================    
+HSA System Attributes    
+=====================    
+Runtime Version:         1.18
+Runtime Ext Version:     1.15
+System Timestamp Freq.:  1000.000000MHz
+Sig. Max Wait Duration:  18446744073709551615 (0xFFFFFFFFFFFFFFFF) (timestamp count)
+Machine Model:           LARGE                              
+System Endianness:       LITTLE                             
+
+ROCM_ROOT        = /nix/store/mam4a3wdd1rls10jm1vvb3pw8lbz2ivr-clr-7.2.3
+HIPBLASLT_ROOT   = /nix/store/8plqmf5xmyyzi90zvf8fp3322lr2brb4-hipblaslt-7.2.3
+MIOPEN_ROOT      = /nix/store/yq3iql1j2sqjdq1hgfn6i39l1z62idrq-miopen-7.2.3
+CPU BLAS (LP64)  = /nix/store/dmsl71kqvflbda92d4w0qzmjx1mqj1p6-openblas-0.3.33/lib
+
+Ready.
+WARNING:root:Error while calling comfy_entrypoint in /media/luna/work/tinker/ComfyUI/comfy_extras/nodes_replacements.py: 'NoneType' object has no attribute 'node_replace_manager'
+[MultiGPU Core Patching] Patching mm.get_torch_device, mm.text_encoder_device, mm.unet_offload_device
+[MultiGPU DEBUG] Initial current_device: cuda:0
+[MultiGPU DEBUG] Initial current_text_encoder_device: cuda:0
+[MultiGPU DEBUG] Initial current_unet_offload_device: cuda:0
+[MultiGPU] Patched comfy.model_management.current_stream to honor CUDA device arguments
+[MultiGPU] Patched comfy.sample.sample with runtime device guard
+[MultiGPU] Patched comfy.sample.sample_custom with runtime device guard
+[MultiGPU] Applied comfy_kitchen CUDA DLPack device guard patch (P2P-aware)
+[MultiGPU] DynamicVRAM not enabled; skipping multi-device aimdo initialization
+[MultiGPU] Initiating custom_node Registration. . .
+-----------------------------------------------
+custom_node                   Found     Nodes
+-----------------------------------------------
+ComfyUI-LTXVideo                  N         0
+ComfyUI-Florence2                 Y         2
+ComfyUI_bitsandbytes_NF4          N         0
+x-flux-comfyui                    N         0
+ComfyUI-MMAudio                   N         0
+ComfyUI-GGUF                      Y        18
+PuLID_ComfyUI                     N         0
+ComfyUI-WanVideoWrapper           N         0
+-----------------------------------------------
+[MultiGPU] Registration complete. Final mappings: CheckpointLoaderAdvancedMultiGPU, CheckpointLoaderAdvancedDisTorch2MultiGPU, DeviceSelectorMultiGPU, UNetLoaderLP, UNETLoaderMultiGPU, VAELoaderMultiGPU, CLIPLoaderMultiGPU, DualCLIPLoaderMultiGPU, TripleCLIPLoaderMultiGPU, QuadrupleCLIPLoaderMultiGPU, CLIPVisionLoaderMultiGPU, CheckpointLoaderSimpleMultiGPU, ControlNetLoaderMultiGPU, DiffusersLoaderMultiGPU, DiffControlNetLoaderMultiGPU, UNETLoaderDisTorch2MultiGPU, VAELoaderDisTorch2MultiGPU, CLIPLoaderDisTorch2MultiGPU, DualCLIPLoaderDisTorch2MultiGPU, TripleCLIPLoaderDisTorch2MultiGPU, QuadrupleCLIPLoaderDisTorch2MultiGPU, CLIPVisionLoaderDisTorch2MultiGPU, CheckpointLoaderSimpleDisTorch2MultiGPU, ControlNetLoaderDisTorch2MultiGPU, DiffusersLoaderDisTorch2MultiGPU, DiffControlNetLoaderDisTorch2MultiGPU, Florence2ModelLoaderMultiGPU, DownloadAndLoadFlorence2ModelMultiGPU, UnetLoaderGGUFDisTorchMultiGPU, UnetLoaderGGUFAdvancedDisTorchMultiGPU, CLIPLoaderGGUFDisTorchMultiGPU, DualCLIPLoaderGGUFDisTorchMultiGPU, TripleCLIPLoaderGGUFDisTorchMultiGPU, QuadrupleCLIPLoaderGGUFDisTorchMultiGPU, UnetLoaderGGUFDisTorch2MultiGPU, UnetLoaderGGUFAdvancedDisTorch2MultiGPU, CLIPLoaderGGUFDisTorch2MultiGPU, DualCLIPLoaderGGUFDisTorch2MultiGPU, TripleCLIPLoaderGGUFDisTorch2MultiGPU, QuadrupleCLIPLoaderGGUFDisTorch2MultiGPU, UnetLoaderGGUFMultiGPU, UnetLoaderGGUFAdvancedMultiGPU, CLIPLoaderGGUFMultiGPU, DualCLIPLoaderGGUFMultiGPU, TripleCLIPLoaderGGUFMultiGPU, QuadrupleCLIPLoaderGGUFMultiGPU
+WARNING:root:WARNING: some comfy_extras/ nodes did not import correctly. This may be because they are missing some dependencies.
+
+WARNING:root:IMPORT FAILED: nodes_replacements.py
+WARNING:root:
+This issue might be caused by new missing dependencies added the last time you updated ComfyUI.
+WARNING:root:Please do a: pip install -r requirements.txt
+WARNING:root:
+[MultiGPU Issue21] Registered ModelPatcherDynamic._load_list guard
+[MultiGPU Core Patching] text_encoder_device_patched returning device: cuda:1 (current_text_encoder_device=cuda:1)
+[MultiGPU CUDA Guard] Switching CUDA current device 0 -> 1 (NodeOverride.load_vae)
+[MultiGPU CUDA Guard] Restored CUDA current device 1 -> 0 (NodeOverride.load_vae)
+[92mSuccessfully preprocessed all matching files.[0m
+Checking AMD architecture for optimal settings...
+Detected AMD architecture: gfx906
+/media/luna/models/unet/krea2/museByStableYogi_v35Int4Extended.safetensors
+Current Working Directory: /media/luna/work/tinker/ComfyUI
+[Gfx906Int4UnetLoader] quantized=39 convrot_repacked=224 passthrough_tensors=167 device=cuda:0
+/media/luna/models/text_encoders/qwen3vl_4b_bf16.safetensors
+Current Working Directory: /media/luna/work/tinker/ComfyUI
+[Gfx906Int4TranscodeCLIP] converted=356 skipped=0 sources={'plain': 356}
+/media/luna/models/vae/qwenImageVAE_qwenImageVAE.safetensors
+Current Working Directory: /media/luna/work/tinker/ComfyUI
+[MultiGPU Runtime] Using runtime device cuda:0 (comfy.sample.sample:ModelPatcher)
+load: required 9.3 GiB, loaded 7.46 of 7.46 GiB, lowvram False, blocks.0 weight on cuda:0; free cuda:0 8.2 GiB
+  0%|          | 0/8 [00:00<?, ?it/s] 12%|█▎        | 1/8 [00:03<00:21,  3.03s/it] 25%|██▌       | 2/8 [00:04<00:13,  2.32s/it] 38%|███▊      | 3/8 [00:06<00:10,  2.09s/it] 50%|█████     | 4/8 [00:08<00:07,  1.99s/it] 62%|██████▎   | 5/8 [00:10<00:05,  1.93s/it] 75%|███████▌  | 6/8 [00:12<00:03,  1.90s/it] 88%|████████▊ | 7/8 [00:13<00:01,  1.88s/it]100%|██████████| 8/8 [00:15<00:00,  1.86s/it]100%|██████████| 8/8 [00:15<00:00,  1.98s/it]
+n6_3840: sizes [(1536, 864), (1840, 1040), (2224, 1248), (2656, 1504), (3200, 1792), (3840, 2160)], sigmas [0.499, 0.441, 0.376, 0.301, 0.215, 0.116]
+/media/luna/work/tinker/ComfyUI/venv/lib/python3.13/site-packages/torch/backends/cudnn/__init__.py:177: UserWarning: cuDNN Benchmark limit is not supported in MIOpen and will have no effect. (Triggered internally at /media/luna/work/tinker/ComfyUI/dependencies/pytorch/torch/csrc/cuda/Module.cpp:2116.)
+  torch._C._cuda_set_cudnn_benchmark_limit(_benchmark_limit)
+load: required 1.1 GiB, loaded 7.46 of 7.46 GiB, lowvram False, blocks.0 weight on cuda:0; free cuda:0 4.9 GiB
+load: required 3.7 GiB, loaded 7.46 of 7.46 GiB, lowvram False, blocks.0 weight on cuda:0; free cuda:0 4.9 GiB
+load: required 13.4 GiB, loaded 7.46 of 7.46 GiB, lowvram False, blocks.0 weight on cuda:0; free cuda:0 4.9 GiB
+  0%|          | 0/1 [00:00<?, ?it/s]100%|██████████| 1/1 [00:03<00:00,  3.09s/it]100%|██████████| 1/1 [00:03<00:00,  3.09s/it]
+  step 1 1536x864 sigma 0.499: upscale 1.9 s, denoise 3.2 s
+load: required 1.1 GiB, loaded 7.46 of 7.46 GiB, lowvram False, blocks.0 weight on cuda:0; free cuda:0 4.9 GiB
+load: required 5.3 GiB, loaded 7.46 of 7.46 GiB, lowvram False, blocks.0 weight on cuda:0; free cuda:0 4.9 GiB
+load: required 19.3 GiB, loaded 7.46 of 7.46 GiB, lowvram False, blocks.0 weight on cuda:0; free cuda:0 4.9 GiB
+  0%|          | 0/1 [00:00<?, ?it/s]100%|██████████| 1/1 [00:11<00:00, 11.40s/it]100%|██████████| 1/1 [00:11<00:00, 11.40s/it]
+  step 2 1840x1040 sigma 0.441: upscale 1.5 s, denoise 11.4 s
+load: required 1.1 GiB, loaded 7.46 of 7.46 GiB, lowvram False, blocks.0 weight on cuda:0; free cuda:0 4.9 GiB
+load: required 7.8 GiB, loaded 7.46 of 7.46 GiB, lowvram False, blocks.0 weight on cuda:0; free cuda:0 4.9 GiB
+load: required 28.0 GiB, loaded 7.46 of 7.46 GiB, lowvram False, blocks.0 weight on cuda:0; free cuda:0 4.9 GiB
+  0%|          | 0/1 [00:00<?, ?it/s]100%|██████████| 1/1 [00:11<00:00, 11.70s/it]100%|██████████| 1/1 [00:11<00:00, 11.70s/it]
+  step 3 2224x1248 sigma 0.376: upscale 2.3 s, denoise 11.7 s
+load: required 1.1 GiB, loaded 7.46 of 7.46 GiB, lowvram False, blocks.0 weight on cuda:0; free cuda:0 4.9 GiB
+load: required 11.2 GiB, loaded 7.46 of 7.46 GiB, lowvram False, blocks.0 weight on cuda:0; free cuda:0 4.9 GiB
+load: required 40.2 GiB, loaded 7.46 of 7.46 GiB, lowvram False, blocks.0 weight on cuda:0; free cuda:0 4.9 GiB
+  0%|          | 0/1 [00:00<?, ?it/s]100%|██████████| 1/1 [00:15<00:00, 15.97s/it]100%|██████████| 1/1 [00:15<00:00, 15.97s/it]
+  step 4 2656x1504 sigma 0.301: upscale 3.4 s, denoise 16.0 s
+load: required 1.1 GiB, loaded 7.46 of 7.46 GiB, lowvram False, blocks.0 weight on cuda:0; free cuda:0 4.9 GiB
+load: required 16.0 GiB, loaded 7.46 of 7.46 GiB, lowvram False, blocks.0 weight on cuda:0; free cuda:0 4.9 GiB
+load: required 57.8 GiB, loaded 7.46 of 7.46 GiB, lowvram False, blocks.0 weight on cuda:0; free cuda:0 4.9 GiB
+  0%|          | 0/1 [00:00<?, ?it/s]100%|██████████| 1/1 [00:16<00:00, 16.39s/it]100%|██████████| 1/1 [00:16<00:00, 16.39s/it]
+  step 5 3200x1792 sigma 0.215: upscale 5.1 s, denoise 16.4 s
+load: required 1.1 GiB, loaded 7.46 of 7.46 GiB, lowvram False, blocks.0 weight on cuda:0; free cuda:0 4.9 GiB
+load: required 23.2 GiB, loaded 7.46 of 7.46 GiB, lowvram False, blocks.0 weight on cuda:0; free cuda:0 4.9 GiB
+load: required 83.5 GiB, loaded 7.46 of 7.46 GiB, lowvram False, blocks.0 weight on cuda:0; free cuda:0 4.9 GiB
+  0%|          | 0/1 [00:00<?, ?it/s]100%|██████████| 1/1 [00:34<00:00, 34.14s/it]100%|██████████| 1/1 [00:34<00:00, 34.14s/it]
+  step 6 3840x2160 sigma 0.116: upscale 7.5 s, denoise 34.2 s
+load: required 1.1 GiB, loaded 7.46 of 7.46 GiB, lowvram False, blocks.0 weight on cuda:0; free cuda:0 4.9 GiB
+{"variant": "n6_3840", "split": true, "native_s": 16.1, "grow_s": 114.7, "detail": 4.17}

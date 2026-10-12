@@ -1,0 +1,8 @@
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (606738 > 131072). Running this sequence through the model will result in indexing errors
+{"train_seqs": 296, "val_seqs": 362, "seq": 2048}
+[92mSuccessfully preprocessed all matching files.[0m
+Checking AMD architecture for optimal settings...
+Detected AMD architecture: gfx906
+{"arm": "int4_frozen_kernel", "step": 0, "val": 1.099, "resident_gb": 6.99}
+{"arm": "int4_frozen_kernel", "step": 5, "train": 1.5741, "s_per_step": 13.05, "skipped": 0, "peak_gb": 9.86}
+{"arm": "int4_frozen_kernel", "step": 10, "train": 1.4972, "s_per_step": 12.96, "skipped": 0, "peak_gb": 9.86}

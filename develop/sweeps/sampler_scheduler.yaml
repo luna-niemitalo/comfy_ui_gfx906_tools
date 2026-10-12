@@ -1,0 +1,4 @@
+recipe: develop/recipes/moodykrea_int4_sampler_sweep.yaml
+axes:
+  sampler.sampler_name: [euler, dpmpp_2m, dpmpp_2m_sde, dpmpp_3m_sde, res_multistep, er_sde]
+  sampler.scheduler: [simple, sgm_uniform, karras]

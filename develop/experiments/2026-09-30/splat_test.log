@@ -1,0 +1,155 @@
+[0mdirenv: loading /media/luna/work/tinker/ComfyUI/.envrc
+[0mdirenv: using flake ./nix
+[0mdirenv: nix-direnv: Using cached dev shell
+ComfyUI ROCm 7.2.53211 shell (gfx906)
+hipcc: /nix/store/mam4a3wdd1rls10jm1vvb3pw8lbz2ivr-clr-7.2.3/bin/hipcc
+HIP version: 7.2.53211-9999
+nixpkgs-AMD clang version 22.0.0 (https://github.com/ROCm/llvm-project/tree/rocm-7.2.3 rocm-7.2.3)
+Target: x86_64-unknown-linux-gnu
+Thread model: posix
+InstalledDir: /nix/store/sphzxfs5f2w29fx0fhs0pn42yyxfyp8h-rocm-toolchain/bin
+Configuration file: /nix/store/sphzxfs5f2w29fx0fhs0pn42yyxfyp8h-rocm-toolchain/bin/x86_64-unknown-linux-gnu.cfg
+
+[37mROCk module is loaded[0m
+=====================    
+HSA System Attributes    
+=====================    
+Runtime Version:         1.18
+Runtime Ext Version:     1.15
+System Timestamp Freq.:  1000.000000MHz
+Sig. Max Wait Duration:  18446744073709551615 (0xFFFFFFFFFFFFFFFF) (timestamp count)
+Machine Model:           LARGE                              
+System Endianness:       LITTLE                             
+
+ROCM_ROOT        = /nix/store/mam4a3wdd1rls10jm1vvb3pw8lbz2ivr-clr-7.2.3
+HIPBLASLT_ROOT   = /nix/store/8plqmf5xmyyzi90zvf8fp3322lr2brb4-hipblaslt-7.2.3
+MIOPEN_ROOT      = /nix/store/yq3iql1j2sqjdq1hgfn6i39l1z62idrq-miopen-7.2.3
+CPU BLAS (LP64)  = /nix/store/dmsl71kqvflbda92d4w0qzmjx1mqj1p6-openblas-0.3.33/lib
+
+Ready.
+WARNING:root:Error while calling comfy_entrypoint in /media/luna/work/tinker/ComfyUI/comfy_extras/nodes_replacements.py: 'NoneType' object has no attribute 'node_replace_manager'
+[MultiGPU Core Patching] Patching mm.get_torch_device, mm.text_encoder_device, mm.unet_offload_device
+[MultiGPU DEBUG] Initial current_device: cuda:0
+[MultiGPU DEBUG] Initial current_text_encoder_device: cuda:0
+[MultiGPU DEBUG] Initial current_unet_offload_device: cuda:0
+[MultiGPU] Patched comfy.model_management.current_stream to honor CUDA device arguments
+[MultiGPU] Patched comfy.sample.sample with runtime device guard
+[MultiGPU] Patched comfy.sample.sample_custom with runtime device guard
+[MultiGPU] Applied comfy_kitchen CUDA DLPack device guard patch (P2P-aware)
+[MultiGPU] DynamicVRAM not enabled; skipping multi-device aimdo initialization
+[MultiGPU] Initiating custom_node Registration. . .
+-----------------------------------------------
+custom_node                   Found     Nodes
+-----------------------------------------------
+ComfyUI-LTXVideo                  N         0
+ComfyUI-Florence2                 Y         2
+ComfyUI_bitsandbytes_NF4          N         0
+x-flux-comfyui                    N         0
+ComfyUI-MMAudio                   N         0
+ComfyUI-GGUF                      Y        18
+PuLID_ComfyUI                     N         0
+ComfyUI-WanVideoWrapper           N         0
+-----------------------------------------------
+[MultiGPU] Registration complete. Final mappings: CheckpointLoaderAdvancedMultiGPU, CheckpointLoaderAdvancedDisTorch2MultiGPU, DeviceSelectorMultiGPU, UNetLoaderLP, UNETLoaderMultiGPU, VAELoaderMultiGPU, CLIPLoaderMultiGPU, DualCLIPLoaderMultiGPU, TripleCLIPLoaderMultiGPU, QuadrupleCLIPLoaderMultiGPU, CLIPVisionLoaderMultiGPU, CheckpointLoaderSimpleMultiGPU, ControlNetLoaderMultiGPU, DiffusersLoaderMultiGPU, DiffControlNetLoaderMultiGPU, UNETLoaderDisTorch2MultiGPU, VAELoaderDisTorch2MultiGPU, CLIPLoaderDisTorch2MultiGPU, DualCLIPLoaderDisTorch2MultiGPU, TripleCLIPLoaderDisTorch2MultiGPU, QuadrupleCLIPLoaderDisTorch2MultiGPU, CLIPVisionLoaderDisTorch2MultiGPU, CheckpointLoaderSimpleDisTorch2MultiGPU, ControlNetLoaderDisTorch2MultiGPU, DiffusersLoaderDisTorch2MultiGPU, DiffControlNetLoaderDisTorch2MultiGPU, Florence2ModelLoaderMultiGPU, DownloadAndLoadFlorence2ModelMultiGPU, UnetLoaderGGUFDisTorchMultiGPU, UnetLoaderGGUFAdvancedDisTorchMultiGPU, CLIPLoaderGGUFDisTorchMultiGPU, DualCLIPLoaderGGUFDisTorchMultiGPU, TripleCLIPLoaderGGUFDisTorchMultiGPU, QuadrupleCLIPLoaderGGUFDisTorchMultiGPU, UnetLoaderGGUFDisTorch2MultiGPU, UnetLoaderGGUFAdvancedDisTorch2MultiGPU, CLIPLoaderGGUFDisTorch2MultiGPU, DualCLIPLoaderGGUFDisTorch2MultiGPU, TripleCLIPLoaderGGUFDisTorch2MultiGPU, QuadrupleCLIPLoaderGGUFDisTorch2MultiGPU, UnetLoaderGGUFMultiGPU, UnetLoaderGGUFAdvancedMultiGPU, CLIPLoaderGGUFMultiGPU, DualCLIPLoaderGGUFMultiGPU, TripleCLIPLoaderGGUFMultiGPU, QuadrupleCLIPLoaderGGUFMultiGPU
+WARNING:root:WARNING: some comfy_extras/ nodes did not import correctly. This may be because they are missing some dependencies.
+
+WARNING:root:IMPORT FAILED: nodes_replacements.py
+WARNING:root:
+This issue might be caused by new missing dependencies added the last time you updated ComfyUI.
+WARNING:root:Please do a: pip install -r requirements.txt
+WARNING:root:
+[MultiGPU Issue21] Registered ModelPatcherDynamic._load_list guard
+[MultiGPU Core Patching] text_encoder_device_patched returning device: cuda:1 (current_text_encoder_device=cuda:1)
+[MultiGPU CUDA Guard] Switching CUDA current device 0 -> 1 (NodeOverride.load_vae)
+[MultiGPU CUDA Guard] Restored CUDA current device 1 -> 0 (NodeOverride.load_vae)
+[92mSuccessfully preprocessed all matching files.[0m
+Checking AMD architecture for optimal settings...
+Detected AMD architecture: gfx906
+/media/luna/models/unet/krea2/museByStableYogi_v35Int4Extended.safetensors
+Current Working Directory: /media/luna/work/tinker/ComfyUI
+[Gfx906Int4UnetLoader] quantized=39 convrot_repacked=224 passthrough_tensors=167 device=cuda:0
+/media/luna/models/text_encoders/qwen3vl_4b_bf16.safetensors
+Current Working Directory: /media/luna/work/tinker/ComfyUI
+[Gfx906Int4TranscodeCLIP] converted=356 skipped=0 sources={'plain': 356}
+/media/luna/models/vae/qwenImageVAE_qwenImageVAE.safetensors
+Current Working Directory: /media/luna/work/tinker/ComfyUI
+[MultiGPU Runtime] Using runtime device cuda:0 (comfy.sample.sample:ModelPatcher)
+  0%|          | 0/8 [00:00<?, ?it/s] 12%|█▎        | 1/8 [00:02<00:16,  2.32s/it] 25%|██▌       | 2/8 [00:04<00:13,  2.21s/it] 38%|███▊      | 3/8 [00:06<00:10,  2.20s/it] 50%|█████     | 4/8 [00:08<00:08,  2.20s/it] 62%|██████▎   | 5/8 [00:11<00:06,  2.21s/it] 75%|███████▌  | 6/8 [00:13<00:04,  2.24s/it] 88%|████████▊ | 7/8 [00:15<00:02,  2.26s/it]100%|██████████| 8/8 [00:18<00:00,  2.28s/it]100%|██████████| 8/8 [00:18<00:00,  2.25s/it]
+{"part": "a", "sigma": 0.3, "spread": 0.17616, "comfy_vs_direct": 0.0, "perm": 0.1427}
+{"part": "a", "sigma": 0.3, "fraction": 0.5, "config": "window", "context": false, "tokens": 1150, "ctx_tokens": 0, "err_over_spread": 0.2387, "s": 0.04}
+{"part": "a", "sigma": 0.3, "fraction": 0.5, "config": "splat1", "context": false, "tokens": 1152, "ctx_tokens": 0, "err_over_spread": 0.5644, "s": 0.05}
+{"part": "a", "sigma": 0.3, "fraction": 0.5, "config": "splat1", "context": true, "tokens": 1152, "ctx_tokens": 1147, "err_over_spread": 0.4316, "s": 0.05}
+{"part": "a", "sigma": 0.3, "fraction": 0.5, "config": "splat2", "context": false, "tokens": 1152, "ctx_tokens": 0, "err_over_spread": 0.4992, "s": 0.04}
+{"part": "a", "sigma": 0.3, "fraction": 0.5, "config": "splat2", "context": true, "tokens": 1152, "ctx_tokens": 1067, "err_over_spread": 0.423, "s": 0.05}
+{"part": "a", "sigma": 0.3, "fraction": 0.5, "config": "splat3", "context": false, "tokens": 1152, "ctx_tokens": 0, "err_over_spread": 0.4226, "s": 0.04}
+{"part": "a", "sigma": 0.3, "fraction": 0.5, "config": "splat3", "context": true, "tokens": 1152, "ctx_tokens": 917, "err_over_spread": 0.3728, "s": 0.05}
+{"part": "a", "sigma": 0.3, "fraction": 0.5, "config": "splat4", "context": false, "tokens": 1152, "ctx_tokens": 0, "err_over_spread": 0.444, "s": 0.04}
+{"part": "a", "sigma": 0.3, "fraction": 0.5, "config": "splat4", "context": true, "tokens": 1152, "ctx_tokens": 817, "err_over_spread": 0.3881, "s": 0.04}
+{"part": "a", "sigma": 0.3, "fraction": 0.25, "config": "window", "context": false, "tokens": 576, "ctx_tokens": 0, "err_over_spread": 0.3072, "s": 0.04}
+{"part": "a", "sigma": 0.3, "fraction": 0.25, "config": "splat1", "context": false, "tokens": 576, "ctx_tokens": 0, "err_over_spread": 0.7977, "s": 0.04}
+{"part": "a", "sigma": 0.3, "fraction": 0.25, "config": "splat1", "context": true, "tokens": 576, "ctx_tokens": 1546, "err_over_spread": 0.5017, "s": 0.05}
+{"part": "a", "sigma": 0.3, "fraction": 0.25, "config": "splat2", "context": false, "tokens": 576, "ctx_tokens": 0, "err_over_spread": 0.7319, "s": 0.04}
+{"part": "a", "sigma": 0.3, "fraction": 0.25, "config": "splat2", "context": true, "tokens": 576, "ctx_tokens": 1041, "err_over_spread": 0.496, "s": 0.05}
+{"part": "a", "sigma": 0.3, "fraction": 0.25, "config": "splat3", "context": false, "tokens": 576, "ctx_tokens": 0, "err_over_spread": 0.6371, "s": 0.04}
+{"part": "a", "sigma": 0.3, "fraction": 0.25, "config": "splat3", "context": true, "tokens": 576, "ctx_tokens": 720, "err_over_spread": 0.4641, "s": 0.05}
+{"part": "a", "sigma": 0.3, "fraction": 0.25, "config": "splat4", "context": false, "tokens": 576, "ctx_tokens": 0, "err_over_spread": 0.6027, "s": 0.04}
+{"part": "a", "sigma": 0.3, "fraction": 0.25, "config": "splat4", "context": true, "tokens": 576, "ctx_tokens": 568, "err_over_spread": 0.3974, "s": 0.05}
+{"part": "a", "sigma": 0.3, "fraction": 0.1, "config": "window", "context": false, "tokens": 231, "ctx_tokens": 0, "err_over_spread": 0.4381, "s": 0.04}
+{"part": "a", "sigma": 0.3, "fraction": 0.1, "config": "splat1", "context": false, "tokens": 231, "ctx_tokens": 0, "err_over_spread": 0.9303, "s": 0.04}
+{"part": "a", "sigma": 0.3, "fraction": 0.1, "config": "splat1", "context": true, "tokens": 231, "ctx_tokens": 1157, "err_over_spread": 0.5754, "s": 0.05}
+{"part": "a", "sigma": 0.3, "fraction": 0.1, "config": "splat2", "context": false, "tokens": 232, "ctx_tokens": 0, "err_over_spread": 0.8309, "s": 0.04}
+{"part": "a", "sigma": 0.3, "fraction": 0.1, "config": "splat2", "context": true, "tokens": 232, "ctx_tokens": 576, "err_over_spread": 0.5318, "s": 0.05}
+{"part": "a", "sigma": 0.3, "fraction": 0.1, "config": "splat3", "context": false, "tokens": 234, "ctx_tokens": 0, "err_over_spread": 0.7324, "s": 0.04}
+{"part": "a", "sigma": 0.3, "fraction": 0.1, "config": "splat3", "context": true, "tokens": 234, "ctx_tokens": 349, "err_over_spread": 0.4461, "s": 0.04}
+{"part": "a", "sigma": 0.3, "fraction": 0.1, "config": "splat4", "context": false, "tokens": 240, "ctx_tokens": 0, "err_over_spread": 0.6657, "s": 0.04}
+{"part": "a", "sigma": 0.3, "fraction": 0.1, "config": "splat4", "context": true, "tokens": 240, "ctx_tokens": 256, "err_over_spread": 0.4253, "s": 0.04}
+{"part": "a", "sigma": 0.6, "spread": 0.18826, "comfy_vs_direct": 0.0, "perm": 0.3591}
+{"part": "a", "sigma": 0.6, "fraction": 0.5, "config": "window", "context": false, "tokens": 1150, "ctx_tokens": 0, "err_over_spread": 0.6127, "s": 0.04}
+{"part": "a", "sigma": 0.6, "fraction": 0.5, "config": "splat1", "context": false, "tokens": 1152, "ctx_tokens": 0, "err_over_spread": 0.8306, "s": 0.05}
+{"part": "a", "sigma": 0.6, "fraction": 0.5, "config": "splat1", "context": true, "tokens": 1152, "ctx_tokens": 1147, "err_over_spread": 0.7677, "s": 0.05}
+{"part": "a", "sigma": 0.6, "fraction": 0.5, "config": "splat2", "context": false, "tokens": 1152, "ctx_tokens": 0, "err_over_spread": 0.722, "s": 0.04}
+{"part": "a", "sigma": 0.6, "fraction": 0.5, "config": "splat2", "context": true, "tokens": 1152, "ctx_tokens": 1058, "err_over_spread": 0.744, "s": 0.05}
+{"part": "a", "sigma": 0.6, "fraction": 0.5, "config": "splat3", "context": false, "tokens": 1152, "ctx_tokens": 0, "err_over_spread": 0.7909, "s": 0.04}
+{"part": "a", "sigma": 0.6, "fraction": 0.5, "config": "splat3", "context": true, "tokens": 1152, "ctx_tokens": 921, "err_over_spread": 0.7407, "s": 0.05}
+{"part": "a", "sigma": 0.6, "fraction": 0.5, "config": "splat4", "context": false, "tokens": 1152, "ctx_tokens": 0, "err_over_spread": 0.7407, "s": 0.04}
+{"part": "a", "sigma": 0.6, "fraction": 0.5, "config": "splat4", "context": true, "tokens": 1152, "ctx_tokens": 751, "err_over_spread": 0.7332, "s": 0.04}
+{"part": "a", "sigma": 0.6, "fraction": 0.25, "config": "window", "context": false, "tokens": 576, "ctx_tokens": 0, "err_over_spread": 0.9279, "s": 0.04}
+{"part": "a", "sigma": 0.6, "fraction": 0.25, "config": "splat1", "context": false, "tokens": 576, "ctx_tokens": 0, "err_over_spread": 1.2371, "s": 0.04}
+{"part": "a", "sigma": 0.6, "fraction": 0.25, "config": "splat1", "context": true, "tokens": 576, "ctx_tokens": 1527, "err_over_spread": 0.9657, "s": 0.05}
+{"part": "a", "sigma": 0.6, "fraction": 0.25, "config": "splat2", "context": false, "tokens": 576, "ctx_tokens": 0, "err_over_spread": 1.2748, "s": 0.03}
+{"part": "a", "sigma": 0.6, "fraction": 0.25, "config": "splat2", "context": true, "tokens": 576, "ctx_tokens": 1038, "err_over_spread": 0.9067, "s": 0.04}
+{"part": "a", "sigma": 0.6, "fraction": 0.25, "config": "splat3", "context": false, "tokens": 576, "ctx_tokens": 0, "err_over_spread": 1.1768, "s": 0.04}
+{"part": "a", "sigma": 0.6, "fraction": 0.25, "config": "splat3", "context": true, "tokens": 576, "ctx_tokens": 726, "err_over_spread": 0.841, "s": 0.05}
+{"part": "a", "sigma": 0.6, "fraction": 0.25, "config": "splat4", "context": false, "tokens": 576, "ctx_tokens": 0, "err_over_spread": 1.0425, "s": 0.04}
+{"part": "a", "sigma": 0.6, "fraction": 0.25, "config": "splat4", "context": true, "tokens": 576, "ctx_tokens": 592, "err_over_spread": 0.897, "s": 0.05}
+{"part": "a", "sigma": 0.6, "fraction": 0.1, "config": "window", "context": false, "tokens": 231, "ctx_tokens": 0, "err_over_spread": 1.4469, "s": 0.04}
+{"part": "a", "sigma": 0.6, "fraction": 0.1, "config": "splat1", "context": false, "tokens": 231, "ctx_tokens": 0, "err_over_spread": 1.5921, "s": 0.04}
+{"part": "a", "sigma": 0.6, "fraction": 0.1, "config": "splat1", "context": true, "tokens": 231, "ctx_tokens": 1168, "err_over_spread": 1.0934, "s": 0.05}
+{"part": "a", "sigma": 0.6, "fraction": 0.1, "config": "splat2", "context": false, "tokens": 232, "ctx_tokens": 0, "err_over_spread": 1.4207, "s": 0.04}
+{"part": "a", "sigma": 0.6, "fraction": 0.1, "config": "splat2", "context": true, "tokens": 232, "ctx_tokens": 569, "err_over_spread": 0.9859, "s": 0.05}
+{"part": "a", "sigma": 0.6, "fraction": 0.1, "config": "splat3", "context": false, "tokens": 234, "ctx_tokens": 0, "err_over_spread": 1.404, "s": 0.04}
+{"part": "a", "sigma": 0.6, "fraction": 0.1, "config": "splat3", "context": true, "tokens": 234, "ctx_tokens": 372, "err_over_spread": 1.1337, "s": 0.04}
+{"part": "a", "sigma": 0.6, "fraction": 0.1, "config": "splat4", "context": false, "tokens": 240, "ctx_tokens": 0, "err_over_spread": 1.2777, "s": 0.04}
+{"part": "a", "sigma": 0.6, "fraction": 0.1, "config": "splat4", "context": true, "tokens": 240, "ctx_tokens": 272, "err_over_spread": 0.9973, "s": 0.04}
+/media/luna/work/tinker/ComfyUI/develop/experiments/2026-09-30/splat_test.py:310: UserWarning: The given NumPy array is not writable, and PyTorch does not support non-writable tensors. This means writing to this tensor will result in undefined behavior. You may want to copy the array to protect its data or make it writable before converting it to a tensor. This type of warning will be suppressed for the rest of this program. (Triggered internally at /media/luna/work/tinker/ComfyUI/dependencies/pytorch/torch/csrc/utils/tensor_numpy.cpp:219.)
+  pixels = torch.from_numpy(np.asarray(small)).float()[None] / 255
+{"part": "b", "variant": "reference", "s": 19.4, "psnr_seed2": 23.89, "detail": 5.44, "seam": 1.007, "seam_seed2": 1.025}
+{"part": "b", "variant": "k2_box_shared", "s": 11.6, "calls": 16, "spp_min": 3.0, "spp_mean": 4.0, "psnr_ref": 22.77, "detail": 6.19, "seam": 1.05}
+{"part": "b", "variant": "k2_box_shared_ctx", "s": 31.8, "calls": 16, "spp_min": 3.0, "spp_mean": 4.0, "psnr_ref": 22.61, "detail": 6.28, "seam": 1.048}
+{"part": "b", "variant": "k2_box_fresh", "s": 12.2, "calls": 16, "spp_min": 3.0, "spp_mean": 4.0, "psnr_ref": 21.26, "detail": 6.32, "seam": 1.046}
+{"part": "b", "variant": "k2_box_fresh_ctx", "s": 32.2, "calls": 16, "spp_min": 3.0, "spp_mean": 4.0, "psnr_ref": 20.93, "detail": 6.27, "seam": 1.066}
+{"part": "b", "variant": "k2_cos_shared", "s": 12.3, "calls": 16, "spp_min": 0.0, "spp_mean": 0.93, "psnr_ref": 23.39, "detail": 5.42, "seam": 1.023}
+{"part": "b", "variant": "k2_cos_shared_ctx", "s": 32.2, "calls": 16, "spp_min": 0.0, "spp_mean": 0.93, "psnr_ref": 23.94, "detail": 5.38, "seam": 1.022}
+{"part": "b", "variant": "k2_cos_fresh", "s": 12.1, "calls": 16, "spp_min": 0.0, "spp_mean": 0.93, "psnr_ref": 23.94, "detail": 5.25, "seam": 1.019}
+{"part": "b", "variant": "k2_cos_fresh_ctx", "s": 32.2, "calls": 16, "spp_min": 0.0, "spp_mean": 0.93, "psnr_ref": 24.14, "detail": 5.41, "seam": 1.022}
+{"part": "b", "variant": "k2_flat25_shared", "s": 12.1, "calls": 16, "spp_min": 0.75, "spp_mean": 2.31, "psnr_ref": 22.69, "detail": 5.89, "seam": 1.026}
+{"part": "b", "variant": "k2_flat25_shared_ctx", "s": 32.1, "calls": 16, "spp_min": 0.75, "spp_mean": 2.31, "psnr_ref": 23.2, "detail": 5.98, "seam": 1.026}
+{"part": "b", "variant": "k2_flat25_fresh", "s": 12.1, "calls": 16, "spp_min": 0.75, "spp_mean": 2.31, "psnr_ref": 22.96, "detail": 5.72, "seam": 1.035}
+{"part": "b", "variant": "k2_flat25_fresh_ctx", "s": 32.0, "calls": 16, "spp_min": 0.75, "spp_mean": 2.31, "psnr_ref": 23.24, "detail": 6.12, "seam": 1.026}
+{"part": "b", "variant": "k2_flat50_shared", "s": 12.2, "calls": 16, "spp_min": 1.5, "spp_mean": 2.87, "psnr_ref": 22.38, "detail": 6.03, "seam": 1.039}
+{"part": "b", "variant": "k2_flat50_shared_ctx", "s": 32.3, "calls": 16, "spp_min": 1.5, "spp_mean": 2.87, "psnr_ref": 22.89, "detail": 5.98, "seam": 1.043}
+{"part": "b", "variant": "k2_flat50_fresh", "s": 12.3, "calls": 16, "spp_min": 1.5, "spp_mean": 2.87, "psnr_ref": 22.62, "detail": 5.95, "seam": 1.046}
+{"part": "b", "variant": "k2_flat50_fresh_ctx", "s": 32.5, "calls": 16, "spp_min": 1.5, "spp_mean": 2.87, "psnr_ref": 22.64, "detail": 6.09, "seam": 1.037}
+{"part": "b", "variant": "k3_flat25_shared", "s": 12.2, "calls": 16, "spp_min": 0.65, "spp_mean": 2.35, "psnr_ref": 22.38, "detail": 6.07, "seam": 1.015}
+{"part": "b", "variant": "k3_flat25_shared_ctx", "s": 25.4, "calls": 16, "spp_min": 0.65, "spp_mean": 2.35, "psnr_ref": 23.3, "detail": 6.58, "seam": 1.022}
+rc=0

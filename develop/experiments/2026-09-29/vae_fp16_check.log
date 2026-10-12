@@ -1,0 +1,6 @@
+{"image": "grow_n6_3840_split.png", "size": "3840x2160", "encode_finite": true, "latent_rel_err": 0.0018, "decode_finite": true, "decode_db": 82.0, "decode_max_abs": 0.0022}
+{"image": "pid_decode_4step_bfloat16.png", "size": "4096x2304", "encode_finite": true, "latent_rel_err": 0.0013, "decode_finite": true, "decode_db": 65.1, "decode_max_abs": 0.0461}
+{"image": "rope_hires_anchor_pi.png", "size": "2560x1440", "encode_finite": true, "latent_rel_err": 0.0012, "decode_finite": true, "decode_db": 75.5, "decode_max_abs": 0.0249}
+{"image": "native.png", "size": "1280x720", "encode_finite": true, "latent_rel_err": 0.0012, "decode_finite": true, "decode_db": 75.3, "decode_max_abs": 0.0161}
+{"image": "stress_checker", "size": "2560x1440", "encode_finite": true, "latent_rel_err": 0.0007, "decode_finite": true, "decode_db": 53.0, "decode_max_abs": 0.0209}
+{"image": "stress_colour_noise", "size": "2560x1440", "encode_finite": true, "latent_rel_err": 0.0003, "decode_finite": true, "decode_db": 52.3, "decode_max_abs": 0.11}

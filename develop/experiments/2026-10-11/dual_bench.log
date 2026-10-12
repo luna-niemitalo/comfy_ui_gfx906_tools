@@ -1,0 +1,84 @@
+gpu_run: card0,card1 lock, HIP sees 0000:0d:00.0, 0000:10:00.0 (hidden: ), timeout 1800 s
+{"card": "card1", "section": "device", "name": "AMD Radeon VII", "visible": 1, "free_gb": 15.95}
+{"card": "card0", "section": "device", "name": "AMD Radeon VII", "visible": 1, "free_gb": 15.96}
+Checking AMD architecture for optimal settings...
+Detected AMD architecture: gfx906
+{"card": "card0", "phase": "solo_card0", "section": "block", "model": "4B", "mode": "full_fp16", "ms_per_block": 744.72, "tflops": 2.31, "model_tokens_per_s": 152.8}
+{"card": "card0", "phase": "solo_card0", "section": "block", "model": "4B", "mode": "lora_fp16", "ms_per_block": 713.79, "tflops": 1.83, "model_tokens_per_s": 159.4}
+{"card": "card0", "phase": "solo_card0", "section": "block", "model": "4B", "mode": "lora_int4", "ms_per_block": 655.08, "tflops": 2.0, "model_tokens_per_s": 173.7}
+{"card": "card0", "phase": "solo_card0", "section": "head", "model": "4B", "ms_per_step": 982.5}
+{"card": "card0", "phase": "solo_card0", "section": "block", "model": "8B", "mode": "full_fp16", "ms_per_block": 1063.01, "tflops": 2.97, "model_tokens_per_s": 120.4}
+{"card": "card0", "phase": "solo_card0", "section": "block", "model": "8B", "mode": "lora_fp16", "ms_per_block": 848.0, "tflops": 2.67, "model_tokens_per_s": 150.9}
+{"card": "card0", "phase": "solo_card0", "section": "block", "model": "8B", "mode": "lora_int4", "ms_per_block": 713.36, "tflops": 3.18, "model_tokens_per_s": 179.4}
+{"card": "card0", "phase": "solo_card0", "section": "head", "model": "8B", "ms_per_step": 1325.4}
+Checking AMD architecture for optimal settings...
+Detected AMD architecture: gfx906
+{"card": "card1", "phase": "solo_card1", "section": "block", "model": "4B", "mode": "full_fp16", "ms_per_block": 738.17, "tflops": 2.33, "model_tokens_per_s": 154.1}
+{"card": "card1", "phase": "solo_card1", "section": "block", "model": "4B", "mode": "lora_fp16", "ms_per_block": 709.97, "tflops": 1.84, "model_tokens_per_s": 160.3}
+{"card": "card1", "phase": "solo_card1", "section": "block", "model": "4B", "mode": "lora_int4", "ms_per_block": 653.24, "tflops": 2.0, "model_tokens_per_s": 174.2}
+{"card": "card1", "phase": "solo_card1", "section": "head", "model": "4B", "ms_per_step": 966.4}
+{"card": "card1", "phase": "solo_card1", "section": "block", "model": "8B", "mode": "full_fp16", "ms_per_block": 1057.91, "tflops": 2.99, "model_tokens_per_s": 121.0}
+{"card": "card1", "phase": "solo_card1", "section": "block", "model": "8B", "mode": "lora_fp16", "ms_per_block": 840.06, "tflops": 2.7, "model_tokens_per_s": 152.4}
+{"card": "card1", "phase": "solo_card1", "section": "block", "model": "8B", "mode": "lora_int4", "ms_per_block": 711.06, "tflops": 3.19, "model_tokens_per_s": 180.0}
+{"card": "card1", "phase": "solo_card1", "section": "head", "model": "8B", "ms_per_step": 1291.3}
+{"card": "card0", "phase": "both", "section": "block", "model": "4B", "mode": "full_fp16", "ms_per_block": 745.51, "tflops": 2.31, "model_tokens_per_s": 152.6}
+{"card": "card1", "phase": "both", "section": "block", "model": "4B", "mode": "full_fp16", "ms_per_block": 740.5, "tflops": 2.32, "model_tokens_per_s": 153.7}
+{"card": "card0", "phase": "both", "section": "block", "model": "4B", "mode": "lora_fp16", "ms_per_block": 713.73, "tflops": 1.83, "model_tokens_per_s": 159.4}
+{"card": "card1", "phase": "both", "section": "block", "model": "4B", "mode": "lora_fp16", "ms_per_block": 708.89, "tflops": 1.84, "model_tokens_per_s": 160.5}
+{"card": "card0", "phase": "both", "section": "block", "model": "4B", "mode": "lora_int4", "ms_per_block": 656.63, "tflops": 1.99, "model_tokens_per_s": 173.3}
+{"card": "card1", "phase": "both", "section": "block", "model": "4B", "mode": "lora_int4", "ms_per_block": 651.44, "tflops": 2.01, "model_tokens_per_s": 174.7}
+{"card": "card0", "phase": "both", "section": "head", "model": "4B", "ms_per_step": 983.1}
+{"card": "card1", "phase": "both", "section": "head", "model": "4B", "ms_per_step": 988.7}
+{"card": "card0", "phase": "both", "section": "block", "model": "8B", "mode": "full_fp16", "ms_per_block": 1062.99, "tflops": 2.97, "model_tokens_per_s": 120.4}
+{"card": "card1", "phase": "both", "section": "block", "model": "8B", "mode": "full_fp16", "ms_per_block": 1057.09, "tflops": 2.99, "model_tokens_per_s": 121.1}
+{"card": "card0", "phase": "both", "section": "block", "model": "8B", "mode": "lora_fp16", "ms_per_block": 850.42, "tflops": 2.67, "model_tokens_per_s": 150.5}
+{"card": "card1", "phase": "both", "section": "block", "model": "8B", "mode": "lora_fp16", "ms_per_block": 852.3, "tflops": 2.66, "model_tokens_per_s": 150.2}
+{"card": "card0", "phase": "both", "section": "block", "model": "8B", "mode": "lora_int4", "ms_per_block": 713.29, "tflops": 3.18, "model_tokens_per_s": 179.5}
+{"card": "card1", "phase": "both", "section": "block", "model": "8B", "mode": "lora_int4", "ms_per_block": 710.83, "tflops": 3.19, "model_tokens_per_s": 180.1}
+{"card": "card0", "phase": "both", "section": "head", "model": "8B", "ms_per_step": 1333.2}
+{"card": "card1", "phase": "both", "section": "head", "model": "8B", "ms_per_step": 1382.7}
+{"card": "card0", "phase": "solo_card0", "section": "pcie", "op": "D2H", "gbps": 7.16}
+{"card": "card0", "phase": "solo_card0", "section": "pcie", "op": "H2D", "gbps": 7.18}
+{"card": "card0", "phase": "solo_card0", "section": "pcie", "op": "D2H+H2D at once (per direction)", "gbps": 3.58}
+{"card": "card1", "phase": "solo_card1", "section": "pcie", "op": "D2H", "gbps": 7.16}
+{"card": "card1", "phase": "solo_card1", "section": "pcie", "op": "H2D", "gbps": 7.17}
+{"card": "card1", "phase": "solo_card1", "section": "pcie", "op": "D2H+H2D at once (per direction)", "gbps": 3.58}
+{"card": "card1", "phase": "both", "section": "pcie", "op": "D2H", "gbps": 7.16}
+{"card": "card0", "phase": "both", "section": "pcie", "op": "D2H", "gbps": 7.16}
+{"card": "card1", "phase": "both", "section": "pcie", "op": "H2D", "gbps": 7.17}
+{"card": "card0", "phase": "both", "section": "pcie", "op": "H2D", "gbps": 7.18}
+{"card": "card1", "phase": "both", "section": "pcie", "op": "D2H+H2D at once (per direction)", "gbps": 3.58}
+{"card": "card0", "phase": "both", "section": "pcie", "op": "D2H+H2D at once (per direction)", "gbps": 3.58}
+{"card": "card1", "phase": "both", "section": "overlap", "block_ms": 1056.7, "transfer_ms": 75.1, "together_ms": 1061.8, "hidden_fraction": 0.93}
+{"card": "card0", "phase": "both", "section": "overlap", "block_ms": 1065.3, "transfer_ms": 75.1, "together_ms": 1064.9, "hidden_fraction": 1.01}
+[0mdirenv: loading /media/luna/work/tinker/ComfyUI/.envrc
+[0mdirenv: using flake ./nix
+[0mdirenv: nix-direnv: Using cached dev shell
+ComfyUI ROCm 7.2.53211 shell (gfx906)
+hipcc: /nix/store/1rky1688rl9nahjqvkj54w7s75776nyc-clr-7.2.3/bin/hipcc
+HIP version: 7.2.53211-9999
+nixpkgs-AMD clang version 22.0.0 (https://github.com/ROCm/llvm-project/tree/rocm-7.2.3 rocm-7.2.3)
+Target: x86_64-unknown-linux-gnu
+Thread model: posix
+InstalledDir: /nix/store/ly700gf82nzmd5y8cyz14107d0ql3fib-rocm-toolchain/bin
+Configuration file: /nix/store/ly700gf82nzmd5y8cyz14107d0ql3fib-rocm-toolchain/bin/x86_64-unknown-linux-gnu.cfg
+
+[37mROCk module is loaded[0m
+=====================    
+HSA System Attributes    
+=====================    
+Runtime Version:         1.18
+Runtime Ext Version:     1.15
+System Timestamp Freq.:  1000.000000MHz
+Sig. Max Wait Duration:  18446744073709551615 (0xFFFFFFFFFFFFFFFF) (timestamp count)
+Machine Model:           LARGE                              
+System Endianness:       LITTLE                             
+
+ROCM_ROOT        = /nix/store/1rky1688rl9nahjqvkj54w7s75776nyc-clr-7.2.3
+HIPBLASLT_ROOT   = /nix/store/crybjwiwfklkrzcb7nhlysz686iabdkm-hipblaslt-7.2.3
+MIOPEN_ROOT      = /nix/store/2gaa43dswxr4vx1qm3fvx0zq8ispbkrg-miopen-7.2.3
+CPU BLAS (LP64)  = /nix/store/fjbvyzjcji3xyzj8n8q7jwfd6qgflii3-openblas-0.3.33/lib
+
+Ready.
+[92mSuccessfully preprocessed all matching files.[0m
+[92mSuccessfully preprocessed all matching files.[0m

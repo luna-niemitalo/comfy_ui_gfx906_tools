@@ -1,0 +1,12 @@
+fp32  decode_tiled  est   2.15 alloc  2.61 reserved  3.55 3.47 s
+fp32  encode_tiled  est   20.6 alloc   1.7 reserved  1.75 2.0 s
+fp32  decode        est  30.21 alloc  8.69 reserved 13.02 5.56 s
+fp32  encode        est   20.6 alloc  4.56 reserved  4.99 3.6 s
+fp16  decode_tiled  est   1.07 alloc  1.34 reserved  1.82 2.31 s
+fp16  encode_tiled  est   10.3 alloc  0.88 reserved  0.92 1.37 s
+fp16  decode        est  15.11 alloc 14.49 reserved  15.3 2.27 s
+fp16  encode        est   10.3 alloc  8.25 reserved 11.58 1.77 s
+int8  decode_tiled  est   0.64 alloc  0.88 reserved  1.19 2.47 s
+int8  encode_tiled  est   8.75 alloc  0.56 reserved  0.71 1.56 s
+int8  decode        est   9.06 alloc  7.64 reserved 12.79 4.21 s
+int8  encode        est   8.75 alloc  6.81 reserved  9.78 3.94 s

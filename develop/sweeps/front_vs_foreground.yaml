@@ -1,0 +1,4 @@
+recipe: develop/recipes/moodykrea_qwenvl.yaml
+axes:
+  prompt: {file: develop/sweeps/front_vs_foreground.txt}
+  sampler.noise_seed: [1, 2, 3]

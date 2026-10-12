@@ -1,0 +1,109 @@
+[0mdirenv: loading /media/luna/work/tinker/ComfyUI/.envrc
+[0mdirenv: using flake ./nix
+[0mdirenv: nix-direnv: Using cached dev shell
+ComfyUI ROCm 7.2.53211 shell (gfx906)
+hipcc: /nix/store/mam4a3wdd1rls10jm1vvb3pw8lbz2ivr-clr-7.2.3/bin/hipcc
+HIP version: 7.2.53211-9999
+nixpkgs-AMD clang version 22.0.0 (https://github.com/ROCm/llvm-project/tree/rocm-7.2.3 rocm-7.2.3)
+Target: x86_64-unknown-linux-gnu
+Thread model: posix
+InstalledDir: /nix/store/sphzxfs5f2w29fx0fhs0pn42yyxfyp8h-rocm-toolchain/bin
+Configuration file: /nix/store/sphzxfs5f2w29fx0fhs0pn42yyxfyp8h-rocm-toolchain/bin/x86_64-unknown-linux-gnu.cfg
+
+[37mROCk module is loaded[0m
+=====================    
+HSA System Attributes    
+=====================    
+Runtime Version:         1.18
+Runtime Ext Version:     1.15
+System Timestamp Freq.:  1000.000000MHz
+Sig. Max Wait Duration:  18446744073709551615 (0xFFFFFFFFFFFFFFFF) (timestamp count)
+Machine Model:           LARGE                              
+System Endianness:       LITTLE                             
+
+ROCM_ROOT        = /nix/store/mam4a3wdd1rls10jm1vvb3pw8lbz2ivr-clr-7.2.3
+HIPBLASLT_ROOT   = /nix/store/8plqmf5xmyyzi90zvf8fp3322lr2brb4-hipblaslt-7.2.3
+MIOPEN_ROOT      = /nix/store/yq3iql1j2sqjdq1hgfn6i39l1z62idrq-miopen-7.2.3
+CPU BLAS (LP64)  = /nix/store/dmsl71kqvflbda92d4w0qzmjx1mqj1p6-openblas-0.3.33/lib
+
+Ready.
+WARNING:root:Error while calling comfy_entrypoint in /media/luna/work/tinker/ComfyUI/comfy_extras/nodes_replacements.py: 'NoneType' object has no attribute 'node_replace_manager'
+[MultiGPU Core Patching] Patching mm.get_torch_device, mm.text_encoder_device, mm.unet_offload_device
+[MultiGPU DEBUG] Initial current_device: cuda:0
+[MultiGPU DEBUG] Initial current_text_encoder_device: cuda:0
+[MultiGPU DEBUG] Initial current_unet_offload_device: cuda:0
+[MultiGPU] Patched comfy.model_management.current_stream to honor CUDA device arguments
+[MultiGPU] Patched comfy.sample.sample with runtime device guard
+[MultiGPU] Patched comfy.sample.sample_custom with runtime device guard
+[MultiGPU] Applied comfy_kitchen CUDA DLPack device guard patch (P2P-aware)
+[MultiGPU] DynamicVRAM not enabled; skipping multi-device aimdo initialization
+[MultiGPU] Initiating custom_node Registration. . .
+-----------------------------------------------
+custom_node                   Found     Nodes
+-----------------------------------------------
+ComfyUI-LTXVideo                  N         0
+ComfyUI-Florence2                 Y         2
+ComfyUI_bitsandbytes_NF4          N         0
+x-flux-comfyui                    N         0
+ComfyUI-MMAudio                   N         0
+ComfyUI-GGUF                      Y        18
+PuLID_ComfyUI                     N         0
+ComfyUI-WanVideoWrapper           N         0
+-----------------------------------------------
+[MultiGPU] Registration complete. Final mappings: CheckpointLoaderAdvancedMultiGPU, CheckpointLoaderAdvancedDisTorch2MultiGPU, DeviceSelectorMultiGPU, UNetLoaderLP, UNETLoaderMultiGPU, VAELoaderMultiGPU, CLIPLoaderMultiGPU, DualCLIPLoaderMultiGPU, TripleCLIPLoaderMultiGPU, QuadrupleCLIPLoaderMultiGPU, CLIPVisionLoaderMultiGPU, CheckpointLoaderSimpleMultiGPU, ControlNetLoaderMultiGPU, DiffusersLoaderMultiGPU, DiffControlNetLoaderMultiGPU, UNETLoaderDisTorch2MultiGPU, VAELoaderDisTorch2MultiGPU, CLIPLoaderDisTorch2MultiGPU, DualCLIPLoaderDisTorch2MultiGPU, TripleCLIPLoaderDisTorch2MultiGPU, QuadrupleCLIPLoaderDisTorch2MultiGPU, CLIPVisionLoaderDisTorch2MultiGPU, CheckpointLoaderSimpleDisTorch2MultiGPU, ControlNetLoaderDisTorch2MultiGPU, DiffusersLoaderDisTorch2MultiGPU, DiffControlNetLoaderDisTorch2MultiGPU, Florence2ModelLoaderMultiGPU, DownloadAndLoadFlorence2ModelMultiGPU, UnetLoaderGGUFDisTorchMultiGPU, UnetLoaderGGUFAdvancedDisTorchMultiGPU, CLIPLoaderGGUFDisTorchMultiGPU, DualCLIPLoaderGGUFDisTorchMultiGPU, TripleCLIPLoaderGGUFDisTorchMultiGPU, QuadrupleCLIPLoaderGGUFDisTorchMultiGPU, UnetLoaderGGUFDisTorch2MultiGPU, UnetLoaderGGUFAdvancedDisTorch2MultiGPU, CLIPLoaderGGUFDisTorch2MultiGPU, DualCLIPLoaderGGUFDisTorch2MultiGPU, TripleCLIPLoaderGGUFDisTorch2MultiGPU, QuadrupleCLIPLoaderGGUFDisTorch2MultiGPU, UnetLoaderGGUFMultiGPU, UnetLoaderGGUFAdvancedMultiGPU, CLIPLoaderGGUFMultiGPU, DualCLIPLoaderGGUFMultiGPU, TripleCLIPLoaderGGUFMultiGPU, QuadrupleCLIPLoaderGGUFMultiGPU
+WARNING:root:WARNING: some comfy_extras/ nodes did not import correctly. This may be because they are missing some dependencies.
+
+WARNING:root:IMPORT FAILED: nodes_replacements.py
+WARNING:root:
+This issue might be caused by new missing dependencies added the last time you updated ComfyUI.
+WARNING:root:Please do a: pip install -r requirements.txt
+WARNING:root:
+[MultiGPU Issue21] Registered ModelPatcherDynamic._load_list guard
+[MultiGPU Core Patching] text_encoder_device_patched returning device: cuda:1 (current_text_encoder_device=cuda:1)
+[MultiGPU CUDA Guard] Switching CUDA current device 0 -> 1 (NodeOverride.load_vae)
+[MultiGPU CUDA Guard] Restored CUDA current device 1 -> 0 (NodeOverride.load_vae)
+[92mSuccessfully preprocessed all matching files.[0m
+Checking AMD architecture for optimal settings...
+Detected AMD architecture: gfx906
+/media/luna/models/unet/krea2/museByStableYogi_v35Int4Extended.safetensors
+Current Working Directory: /media/luna/work/tinker/ComfyUI
+[Gfx906Int4UnetLoader] quantized=39 convrot_repacked=224 passthrough_tensors=167 device=cuda:0
+/media/luna/models/text_encoders/qwen3vl_4b_bf16.safetensors
+Current Working Directory: /media/luna/work/tinker/ComfyUI
+[Gfx906Int4TranscodeCLIP] converted=356 skipped=0 sources={'plain': 356}
+/media/luna/models/vae/qwenImageVAE_qwenImageVAE.safetensors
+Current Working Directory: /media/luna/work/tinker/ComfyUI
+[MultiGPU Runtime] Using runtime device cuda:0 (comfy.sample.sample:ModelPatcher)
+  0%|          | 0/8 [00:00<?, ?it/s] 12%|█▎        | 1/8 [00:03<00:21,  3.02s/it] 25%|██▌       | 2/8 [00:04<00:13,  2.32s/it] 38%|███▊      | 3/8 [00:06<00:10,  2.09s/it] 50%|█████     | 4/8 [00:08<00:07,  1.99s/it] 62%|██████▎   | 5/8 [00:10<00:05,  1.94s/it] 75%|███████▌  | 6/8 [00:12<00:03,  1.91s/it] 88%|████████▊ | 7/8 [00:14<00:01,  1.90s/it]100%|██████████| 8/8 [00:15<00:00,  1.89s/it]100%|██████████| 8/8 [00:15<00:00,  2.00s/it]
+/media/luna/work/tinker/ComfyUI/venv/lib/python3.13/site-packages/torch/backends/cudnn/__init__.py:177: UserWarning: cuDNN Benchmark limit is not supported in MIOpen and will have no effect. (Triggered internally at /media/luna/work/tinker/ComfyUI/dependencies/pytorch/torch/csrc/cuda/Module.cpp:2116.)
+  torch._C._cuda_set_cudnn_benchmark_limit(_benchmark_limit)
+/media/luna/models/VAE-approx/lighttaew2_1.safetensors
+Current Working Directory: /media/luna/work/tinker/ComfyUI
+{"run": "linear_3840x2160_256_vae", "step": 1, "size": "1536x864", "mp": 1.33, "sigma": 0.499, "step_s": 4.3, "total_s": 4.3, "drift_db": 24.16, "change_db": 24.16, "measured_at": "1536x864", "noise": 1.73, "noise_720": 1.98, "detail": 10.98, "detail_720": 11.57, "upscale_s": 0.68, "denoise_s": 3.2, "overhead_s": 0.46}
+{"run": "linear_3840x2160_256_vae", "step": 2, "size": "1792x1008", "mp": 1.81, "sigma": 0.441, "step_s": 5.3, "total_s": 9.6, "drift_db": 24.32, "change_db": 23.84, "measured_at": "1792x1008", "noise": 1.64, "noise_720": 2.17, "detail": 10.06, "detail_720": 11.33, "upscale_s": 0.12, "denoise_s": 3.78, "overhead_s": 1.39}
+{"run": "linear_3840x2160_256_vae", "step": 3, "size": "2048x1152", "mp": 2.36, "sigma": 0.386, "step_s": 13.9, "total_s": 23.6, "drift_db": 24.59, "change_db": 25.07, "measured_at": "2048x1152", "noise": 1.46, "noise_720": 2.14, "detail": 9.0, "detail_720": 10.82, "upscale_s": 0.16, "denoise_s": 11.84, "overhead_s": 1.94}
+{"run": "linear_3840x2160_256_vae", "step": 4, "size": "2304x1296", "mp": 2.99, "sigma": 0.334, "step_s": 14.9, "total_s": 38.5, "drift_db": 24.61, "change_db": 26.38, "measured_at": "2304x1296", "noise": 1.28, "noise_720": 2.07, "detail": 7.96, "detail_720": 10.47, "upscale_s": 0.53, "denoise_s": 12.19, "overhead_s": 2.19}
+{"run": "linear_3840x2160_256_vae", "step": 5, "size": "2560x1440", "mp": 3.69, "sigma": 0.285, "step_s": 16.0, "total_s": 54.5, "drift_db": 24.78, "change_db": 27.69, "measured_at": "2560x1440", "noise": 1.07, "noise_720": 2.0, "detail": 6.86, "detail_720": 9.95, "upscale_s": 1.36, "denoise_s": 12.56, "overhead_s": 2.11}
+{"run": "linear_3840x2160_256_vae", "step": 6, "size": "2816x1584", "mp": 4.46, "sigma": 0.236, "step_s": 21.5, "total_s": 76.0, "drift_db": 24.73, "change_db": 29.29, "measured_at": "2816x1584", "noise": 0.9, "noise_720": 1.94, "detail": 5.94, "detail_720": 9.76, "upscale_s": 2.5, "denoise_s": 16.96, "overhead_s": 2.03}
+{"run": "linear_3840x2160_256_vae", "step": 7, "size": "3072x1728", "mp": 5.31, "sigma": 0.187, "step_s": 22.7, "total_s": 98.7, "drift_db": 24.7, "change_db": 30.96, "measured_at": "3072x1728", "noise": 0.75, "noise_720": 1.88, "detail": 5.13, "detail_720": 9.45, "upscale_s": 3.01, "denoise_s": 17.24, "overhead_s": 2.45}
+{"run": "linear_3840x2160_256_vae", "step": 8, "size": "3328x1872", "mp": 6.23, "sigma": 0.14, "step_s": 32.8, "total_s": 131.5, "drift_db": 24.59, "change_db": 32.83, "measured_at": "3328x1872", "noise": 0.61, "noise_720": 1.87, "detail": 4.41, "detail_720": 9.4, "upscale_s": 4.25, "denoise_s": 26.25, "overhead_s": 2.29}
+{"run": "linear_3840x2160_256_vae", "step": 9, "size": "3584x2016", "mp": 7.23, "sigma": 0.092, "step_s": 43.1, "total_s": 174.6, "drift_db": 24.47, "change_db": 35.3, "measured_at": "3584x2016", "noise": 0.49, "noise_720": 1.87, "detail": 3.8, "detail_720": 9.42, "upscale_s": 5.28, "denoise_s": 35.18, "overhead_s": 2.63}
+{"run": "linear_3840x2160_256_vae", "step": 10, "size": "3840x2160", "mp": 8.29, "sigma": 0.046, "step_s": 44.6, "total_s": 219.2, "drift_db": 24.37, "change_db": 39.49, "measured_at": "3840x2160", "noise": 0.41, "noise_720": 1.88, "detail": 3.3, "detail_720": 9.43, "upscale_s": 6.2, "denoise_s": 35.69, "overhead_s": 2.72}
+{"run": "linear_3840x2160_256_tiny_vae", "step": 1, "size": "1536x864", "mp": 1.33, "sigma": 0.499, "step_s": 4.4, "total_s": 4.4, "drift_db": 24.33, "change_db": 24.33, "measured_at": "1536x864", "noise": 1.71, "noise_720": 1.98, "detail": 10.88, "detail_720": 11.43, "upscale_s": 0.12, "denoise_s": 3.66, "overhead_s": 0.61}
+{"run": "linear_3840x2160_256_tiny_vae", "step": 2, "size": "1792x1008", "mp": 1.81, "sigma": 0.441, "step_s": 5.3, "total_s": 9.7, "drift_db": 24.5, "change_db": 24.05, "measured_at": "1792x1008", "noise": 1.56, "noise_720": 2.09, "detail": 9.76, "detail_720": 11.0, "upscale_s": 0.11, "denoise_s": 4.29, "overhead_s": 0.92}
+{"run": "linear_3840x2160_256_tiny_vae", "step": 3, "size": "2048x1152", "mp": 2.36, "sigma": 0.386, "step_s": 14.7, "total_s": 24.4, "drift_db": 24.63, "change_db": 25.34, "measured_at": "2048x1152", "noise": 1.38, "noise_720": 2.02, "detail": 8.61, "detail_720": 10.31, "upscale_s": 0.15, "denoise_s": 13.26, "overhead_s": 1.27}
+{"run": "linear_3840x2160_256_tiny_vae", "step": 4, "size": "2304x1296", "mp": 2.99, "sigma": 0.334, "step_s": 15.3, "total_s": 39.7, "drift_db": 24.56, "change_db": 26.66, "measured_at": "2304x1296", "noise": 1.22, "noise_720": 1.91, "detail": 7.62, "detail_720": 9.84, "upscale_s": 0.3, "denoise_s": 13.45, "overhead_s": 1.52}
+{"run": "linear_3840x2160_256_tiny_vae", "step": 5, "size": "2560x1440", "mp": 3.69, "sigma": 0.285, "step_s": 15.8, "total_s": 55.5, "drift_db": 24.66, "change_db": 28.05, "measured_at": "2560x1440", "noise": 1.03, "noise_720": 1.81, "detail": 6.56, "detail_720": 9.36, "upscale_s": 1.0, "denoise_s": 13.55, "overhead_s": 1.27}
+{"run": "linear_3840x2160_256_tiny_vae", "step": 6, "size": "2816x1584", "mp": 4.46, "sigma": 0.236, "step_s": 20.9, "total_s": 76.3, "drift_db": 24.6, "change_db": 29.71, "measured_at": "2816x1584", "noise": 0.87, "noise_720": 1.75, "detail": 5.67, "detail_720": 9.17, "upscale_s": 1.79, "denoise_s": 17.97, "overhead_s": 1.11}
+{"run": "linear_3840x2160_256_tiny_vae", "step": 7, "size": "3072x1728", "mp": 5.31, "sigma": 0.187, "step_s": 21.5, "total_s": 97.9, "drift_db": 24.53, "change_db": 31.45, "measured_at": "3072x1728", "noise": 0.74, "noise_720": 1.7, "detail": 4.9, "detail_720": 8.93, "upscale_s": 2.14, "denoise_s": 18.09, "overhead_s": 1.29}
+{"run": "linear_3840x2160_256_tiny_vae", "step": 8, "size": "3328x1872", "mp": 6.23, "sigma": 0.14, "step_s": 31.3, "total_s": 129.1, "drift_db": 24.38, "change_db": 33.27, "measured_at": "3328x1872", "noise": 0.61, "noise_720": 1.7, "detail": 4.24, "detail_720": 8.98, "upscale_s": 3.02, "denoise_s": 27.2, "overhead_s": 1.06}
+{"run": "linear_3840x2160_256_tiny_vae", "step": 9, "size": "3584x2016", "mp": 7.23, "sigma": 0.092, "step_s": 41.2, "total_s": 170.4, "drift_db": 24.19, "change_db": 35.44, "measured_at": "3584x2016", "noise": 0.51, "noise_720": 1.73, "detail": 3.71, "detail_720": 9.08, "upscale_s": 3.58, "denoise_s": 36.38, "overhead_s": 1.28}
+{"run": "linear_3840x2160_256_tiny_vae", "step": 10, "size": "3840x2160", "mp": 8.29, "sigma": 0.046, "step_s": 41.6, "total_s": 212.0, "drift_db": 24.0, "change_db": 38.47, "measured_at": "3840x2160", "noise": 0.45, "noise_720": 1.76, "detail": 3.32, "detail_720": 9.1, "upscale_s": 4.12, "denoise_s": 36.16, "overhead_s": 1.32}
+{"run": "linear_3840x2160_256_latent", "step": 1, "size": "1536x864", "mp": 1.33, "sigma": 0.499, "step_s": 3.7, "total_s": 3.7, "drift_db": 23.93, "change_db": 23.93, "measured_at": "1536x864", "noise": 1.63, "noise_720": 1.91, "detail": 10.65, "detail_720": 11.3, "upscale_s": 0.0, "denoise_s": 3.66, "overhead_s": 0.05}
+{"run": "linear_3840x2160_256_latent", "step": 2, "size": "1792x1008", "mp": 1.81, "sigma": 0.441, "step_s": 4.4, "total_s": 8.1, "drift_db": 24.14, "change_db": 23.25, "measured_at": "1792x1008", "noise": 1.74, "noise_720": 2.26, "detail": 10.74, "detail_720": 11.87, "upscale_s": 0.0, "denoise_s": 4.32, "overhead_s": 0.04}
+{"run": "linear_3840x2160_256_latent", "step": 3, "size": "2048x1152", "mp": 2.36, "sigma": 0.386, "step_s": 13.6, "total_s": 21.7, "drift_db": 24.35, "change_db": 23.88, "measured_at": "2048x1152", "noise": 1.75, "noise_720": 2.37, "detail": 10.62, "detail_720": 11.86, "upscale_s": 0.0, "denoise_s": 13.56, "overhead_s": 0.04}
+{"run": "linear_3840x2160_256_latent", "step": 4, "size": "2304x1296", "mp": 2.99, "sigma": 0.334, "step_s": 13.7, "total_s": 35.3, "drift_db": 24.62, "change_db": 24.59, "measured_at": "2304x1296", "noise": 1.75, "noise_720": 2.38, "detail": 10.54, "detail_720": 11.56, "upscale_s": 0.0, "denoise_s": 13.62, "overhead_s": 0.04}
+{"run": "linear_3840x2160_256_latent", "step": 5, "size": "2560x1440", "mp": 3.69, "sigma": 0.285, "step_s": 13.6, "total_s": 48.9, "drift_db": 24.9, "change_db": 25.42, "measured_at": "2560x1440", "noise": 1.7, "noise_720": 2.3, "detail": 10.22, "detail_720": 10.92, "upscale_s": 0.0, "denoise_s": 13.52, "overhead_s": 0.05}
+{"run": "linear_3840x2160_256_latent", "step": 6, "size": "2816x1584", "mp": 4.46, "sigma": 0.236, "step_s": 18.3, "total_s": 67.2, "drift_db": 24.93, "change_db": 26.14, "measured_at": "2816x1584", "noise": 1.69, "noise_720": 2.22, "detail": 10.08, "detail_720": 10.5, "upscale_s": 0.0, "denoise_s": 18.22, "overhead_s": 0.04}
+{"run": "linear_3840x2160_256_latent", "step": 7, "size": "3072x1728", "mp": 5.31, "sigma": 0.187, "step_s": 18.1, "total_s": 85.3, "drift_db": 25.0, "change_db": 26.58, "measured_at": "3072x1728", "noise": 1.7, "noise_720": 2.13, "detail": 10.06, "detail_720": 10.04, "upscale_s": 0.0, "denoise_s": 18.09, "overhead_s": 0.04}
+{"run": "linear_3840x2160_256_latent", "step": 8, "size": "3328x1872", "mp": 6.23, "sigma": 0.14, "step_s": 27.4, "total_s": 112.7, "drift_db": 25.02, "change_db": 26.94, "measured_at": "3328x1872", "noise": 1.67, "noise_720": 2.09, "detail": 9.9, "detail_720": 9.87, "upscale_s": 0.0, "denoise_s": 27.34, "overhead_s": 0.04}

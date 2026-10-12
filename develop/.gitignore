@@ -1,0 +1,5 @@
+__pycache__/
+# generated images + sidecars/manifests; regenerable from recipes
+out/
+experiments/*/attn_capture*/
+experiments/*/*.pt

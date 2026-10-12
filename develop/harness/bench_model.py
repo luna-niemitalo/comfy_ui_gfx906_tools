@@ -1,0 +1,189 @@
+#!/usr/bin/env python3
+"""Time one Krea2 diffusion-model forward (= one sampling step at cfg 1) per
+resolution, with the real int4 UNet loaded once. Skips text encode, sampler
+and VAE: this is the per-step cost the sampler multiplies by `steps`.
+Optionally splits each forward's device time into categories.
+
+Attention backend is chosen here, not inherited: bootstrap.py doesn't match
+run.nu (quad attention + noflash_attention's SDPA patch), and comfy picks
+optimized_attention once at import time, so it must be set before bootstrap.
+
+Usage:
+    python develop/harness/bench_model.py --attention quad --res 128x128,1024x576,2560x1440
+    python develop/harness/bench_model.py --attention pytorch --noflash --breakdown --res 1024x576
+"""
+import argparse
+import json
+import logging
+import os
+import sys
+import time
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
+parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+parser.add_argument("--unet", default="krea2/museByStableYogi_v35Int4Extended.safetensors")
+parser.add_argument("--device", default="cuda:0")
+parser.add_argument("--attention", choices=["quad", "split", "pytorch", "ck"], default="quad")
+parser.add_argument("--noflash", action="store_true", help="import noflash_attention (patches SDPA), as main.py does")
+parser.add_argument("--res", default="128x128,1024x576,2560x1440", help="comma-separated WxH")
+parser.add_argument("--txt-tokens", type=int, default=128)
+parser.add_argument("--iters", type=int, default=2)
+parser.add_argument("--breakdown", action="store_true", help="split one forward into int4 linear / attention / other (single GPU only)")
+parser.add_argument("--split-device", default=None, help="apply Gfx906RowSplitKrea2 with this second GPU")
+parser.add_argument("--check", action="store_true", help="max relative error of the (possibly split) forward vs a plain one")
+parser.add_argument("--ballast-gb", type=float, default=0.0, help="hold this much VRAM on --split-device (stands in for a text encoder + VAE parked there)")
+parser.add_argument("--fused-attention", default=None, metavar="QK/PV", help="apply Gfx906FusedAttention, e.g. int4/u8 (qk: fp16|int8|int4, pv: fp16|u8)")
+parser.add_argument("--skip-below", type=float, default=1e-4, help="Gfx906FusedAttention tile skip threshold")
+parser.add_argument("--sparse-tau", type=float, default=0.0, help="Gfx906FusedAttention block sparsity (0 = off); calibrates on the warmup forward")
+parser.add_argument("--max-missed", type=float, default=0.02, help="Gfx906FusedAttention block-sparse calibration bound")
+cli = parser.parse_args()
+
+import comfy.cli_args  # noqa: E402  (must precede bootstrap: attention is picked at comfy import)
+comfy.cli_args.args.use_quad_cross_attention = cli.attention == "quad"
+comfy.cli_args.args.use_split_cross_attention = cli.attention == "split"
+comfy.cli_args.args.use_pytorch_cross_attention = cli.attention == "pytorch"
+comfy.cli_args.args.use_ck_attention = cli.attention == "ck"
+comfy.cli_args.args.force_fp16 = True
+# Only the node packs this bench calls: importing every custom node costs
+# ~1 min and GBs of host RAM per run (see the kswapd crash note in memory).
+comfy.cli_args.args.disable_all_custom_nodes = True
+comfy.cli_args.args.whitelist_custom_nodes = ["ComfyUI-Gfx906Int4", "ComfyUI-GGUF"]
+if cli.noflash:
+    import noflash_attention  # noqa: F401,E402
+
+import torch  # noqa: E402
+
+import bootstrap  # noqa: E402
+import pipeline  # noqa: E402
+import comfy.model_management  # noqa: E402
+
+
+def parse_res(text):
+    w, h = text.lower().split("x")
+    return int(w), int(h)
+
+
+def make_inputs(model, w, h, txt_tokens, device, dtype):
+    dm = model.model.diffusion_model
+    x = torch.randn(1, dm.channels, h // 8, w // 8, device=device, dtype=dtype)
+    t = torch.full((1,), 0.5, device=device, dtype=dtype)
+    context = torch.randn(1, txt_tokens, dm.txtlayers * dm.txtdim, device=device, dtype=dtype)
+    # Krea2.extra_conds runs the text path once per sampling call; mirror that
+    return x, t, dm.preprocess_text(context)
+
+
+def forward_ms(forward, iters):
+    forward()
+    torch.cuda.synchronize()
+    t0 = time.perf_counter()
+    for _ in range(iters):
+        forward()
+    torch.cuda.synchronize()
+    return (time.perf_counter() - t0) * 1000 / iters
+
+
+class SyncTimer:
+    """Wraps a function so each call is bracketed by device syncs and timed
+    on the host. torch.profiler records no device activity on this ROCm
+    build, and HIP event pairs overlapped (categories summed past the
+    total), so this pays a sync per call instead -- noise at small sizes,
+    accurate where the breakdown matters."""
+
+    def __init__(self):
+        self.totals = {}
+
+    def wrap(self, name, fn):
+        self.totals.setdefault(name, 0.0)
+
+        def timed(*args, **kwargs):
+            torch.cuda.synchronize()
+            t0 = time.perf_counter()
+            out = fn(*args, **kwargs)
+            torch.cuda.synchronize()
+            self.totals[name] += (time.perf_counter() - t0) * 1000
+            return out
+        return timed
+
+    def totals_ms(self):
+        return self.totals
+
+
+def breakdown(dm, forward):
+    """Per-category device time of one forward: int4 linears, attention, rest."""
+    import comfy.ldm.krea2.model as krea2
+    int4_linear_cls = next(type(m) for m in dm.modules() if hasattr(m, "weight_q4"))
+    int4_ops = sys.modules[int4_linear_cls.__module__]
+    timer = SyncTimer()
+    forward()  # warmup outside the wrappers, so each category counts one forward
+    orig_attn, orig_linear = krea2.optimized_attention_masked, int4_ops.int4_linear
+    krea2.optimized_attention_masked = timer.wrap("attention", orig_attn)
+    int4_ops.int4_linear = timer.wrap("int4_linear", orig_linear)
+    try:
+        torch.cuda.synchronize()
+        t0 = time.perf_counter()
+        forward()
+        torch.cuda.synchronize()
+        total_ms = (time.perf_counter() - t0) * 1000
+    finally:
+        krea2.optimized_attention_masked, int4_ops.int4_linear = orig_attn, orig_linear
+    parts = {k: round(v, 1) for k, v in timer.totals_ms().items()}
+    parts["other"] = round(total_ms - sum(parts.values()), 1)
+    return {"total_ms": round(total_ms, 1), **parts}
+
+
+def main():
+    logging.getLogger().setLevel(logging.INFO)  # node plan lines ("[Gfx906 Split] ...") log at INFO
+    bootstrap.ensure_custom_nodes()
+    device = torch.device(cli.device)
+    with torch.inference_mode():
+        t0 = time.perf_counter()
+        (model,) = pipeline.call_node("Gfx906Int4UnetLoader", unet_name=cli.unet, device=cli.device)
+        comfy.model_management.load_models_gpu([model])
+        load_s = time.perf_counter() - t0
+        dm = model.model.diffusion_model
+        dtype = model.model.get_dtype()
+        print(json.dumps({"load_s": round(load_s, 1), "dtype": str(dtype), "attention": cli.attention,
+                          "fused_attention": cli.fused_attention,
+                          "noflash": cli.noflash, "vram_gb": round(torch.cuda.memory_allocated(device) / 2**30, 2)}), flush=True)
+
+        # The sampler hands the patcher's transformer_options (incl. an
+        # attention override) and wrappers to the model; do the same so
+        # patch- and wrapper-based nodes take effect.
+        if cli.fused_attention:
+            qk, pv = cli.fused_attention.split("/")
+            (model,) = pipeline.call_node("Gfx906FusedAttention", model=model, qk=qk, pv=pv, skip_below=cli.skip_below,
+                                          sparse_tau=cli.sparse_tau, max_missed=cli.max_missed)
+        if cli.split_device:
+            (model,) = pipeline.call_node("Gfx906RowSplitKrea2", model=model, device=cli.split_device, min_image_tokens=0)
+            other_gpu = f"cuda:{1 - device.index}" if cli.split_device == "auto" else cli.split_device
+            ballast = torch.empty(int(cli.ballast_gb * 2**30), dtype=torch.uint8, device=other_gpu)  # noqa: F841 (held for the run)
+        options = {**model.model_options["transformer_options"], "wrappers": model.wrappers}
+
+        for res in cli.res.split(","):
+            w, h = parse_res(res)
+            inputs = make_inputs(model, w, h, cli.txt_tokens, device, dtype)
+
+            def forward():
+                return dm(*inputs, transformer_options=options)
+
+            torch.cuda.reset_peak_memory_stats(device)
+            if cli.split_device:
+                torch.cuda.reset_peak_memory_stats(other_gpu)
+            ms = forward_ms(forward, cli.iters)
+            record = {"res": res, "img_tokens": (w // 16) * (h // 16), "step_ms": round(ms, 1),
+                      "peak_gb": round(torch.cuda.max_memory_allocated(device) / 2**30, 2)}
+            if cli.split_device:
+                record["split_peak_gb"] = round(torch.cuda.max_memory_allocated(other_gpu) / 2**30, 2)
+            if cli.breakdown:
+                record["breakdown_ms"] = breakdown(dm, forward)
+            if cli.check:
+                ref = dm(*inputs)
+                out = forward()
+                record["check_rel_err"] = float(f"{((out - ref).abs().max() / ref.abs().max()).item():.2e}")
+            print(json.dumps(record), flush=True)
+            del inputs
+
+
+if __name__ == "__main__":
+    main()

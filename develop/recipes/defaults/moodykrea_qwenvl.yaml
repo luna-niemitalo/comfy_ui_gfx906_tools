@@ -1,0 +1,51 @@
+# Default node graph for kind: moodykrea_qwenvl — transcribed once from
+# develop/Luna's moodyKrea thumbnails.json. A recipe with `kind:
+# moodykrea_qwenvl` merges onto this; it never needs to repeat any of it.
+loaders:
+  unet:
+    node: UNETLoaderMultiGPU
+    unet_name: krea2/moodyKrea2Mix_v50.safetensors
+    weight_dtype: default
+    device: cuda:0
+  clip:
+    node: CLIPLoaderMultiGPU
+    clip_name: qwen3vl_4b_bf16.safetensors
+    type: krea2
+    device: cuda:1
+  vae:
+    node: VAELoaderMultiGPU
+    vae_name: qwenImageVAE_qwenImageVAE.safetensors
+    device: cuda:0
+
+conditioning:
+  positive:
+    node: CLIPTextEncode
+    text: ""
+  negative:
+    node: ConditioningZeroOut
+    source: positive
+
+latent:
+  node: EmptyLatentImage
+  width: 128
+  height: 128
+  batch_size: 1
+
+sampler:
+  node: KSamplerAdvanced
+  add_noise: enable
+  noise_seed: 337040858006321
+  steps: 8
+  cfg: 0.8
+  sampler_name: er_sde
+  scheduler: simple
+  start_at_step: 0
+  end_at_step: 8
+  return_with_leftover_noise: enable
+
+vae_decode:
+  node: VAEDecodeTiled
+  tile_size: 512
+  overlap: 64
+  temporal_size: 64
+  temporal_overlap: 8

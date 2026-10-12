@@ -1,0 +1,4 @@
+character facing away from camera, forward leg stepping into water, back leg on dry sand
+character facing away from camera, front leg stepping down off a curb, back leg still on the sidewalk
+character walking away from camera, leading leg ahead in shallow water, trailing leg behind on the shore
+character seen from behind, front foot planted in wet sand, rear foot on dry ground

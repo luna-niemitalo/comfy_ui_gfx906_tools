@@ -1,0 +1,43 @@
+[0mdirenv: loading /media/luna/work/tinker/ComfyUI/.envrc
+[0mdirenv: using flake ./nix
+[0mdirenv: nix-direnv: Using cached dev shell
+ComfyUI ROCm 7.2.53211 shell (gfx906)
+hipcc: /nix/store/mam4a3wdd1rls10jm1vvb3pw8lbz2ivr-clr-7.2.3/bin/hipcc
+HIP version: 7.2.53211-9999
+nixpkgs-AMD clang version 22.0.0 (https://github.com/ROCm/llvm-project/tree/rocm-7.2.3 rocm-7.2.3)
+Target: x86_64-unknown-linux-gnu
+Thread model: posix
+InstalledDir: /nix/store/sphzxfs5f2w29fx0fhs0pn42yyxfyp8h-rocm-toolchain/bin
+Configuration file: /nix/store/sphzxfs5f2w29fx0fhs0pn42yyxfyp8h-rocm-toolchain/bin/x86_64-unknown-linux-gnu.cfg
+
+[37mROCk module is loaded[0m
+=====================    
+HSA System Attributes    
+=====================    
+Runtime Version:         1.18
+Runtime Ext Version:     1.15
+System Timestamp Freq.:  1000.000000MHz
+Sig. Max Wait Duration:  18446744073709551615 (0xFFFFFFFFFFFFFFFF) (timestamp count)
+Machine Model:           LARGE                              
+System Endianness:       LITTLE                             
+
+ROCM_ROOT        = /nix/store/mam4a3wdd1rls10jm1vvb3pw8lbz2ivr-clr-7.2.3
+HIPBLASLT_ROOT   = /nix/store/8plqmf5xmyyzi90zvf8fp3322lr2brb4-hipblaslt-7.2.3
+MIOPEN_ROOT      = /nix/store/yq3iql1j2sqjdq1hgfn6i39l1z62idrq-miopen-7.2.3
+CPU BLAS (LP64)  = /nix/store/dmsl71kqvflbda92d4w0qzmjx1mqj1p6-openblas-0.3.33/lib
+
+Ready.
+Checking AMD architecture for optimal settings...
+Detected AMD architecture: gfx906
+/media/luna/models/vae/qwenImageVAE_qwenImageVAE.safetensors
+Current Working Directory: /media/luna/work/tinker/ComfyUI
+{"int8_convs_patched": 67}
+/media/luna/work/tinker/ComfyUI/develop/experiments/2026-09-29/vae_int8_bench.py:65: UserWarning: The given NumPy array is not writable, and PyTorch does not support non-writable tensors. This means writing to this tensor will result in undefined behavior. You may want to copy the array to protect its data or make it writable before converting it to a tensor. This type of warning will be suppressed for the rest of this program. (Triggered internally at /media/luna/work/tinker/ComfyUI/dependencies/pytorch/torch/csrc/utils/tensor_numpy.cpp:219.)
+  image = torch.from_numpy(np.asarray(src_img.resize((w, h), Image.LANCZOS))).float().div(255)[None]
+{"res": "2560x1440", "vae": "fp32", "decode_s": 3.45, "encode_s": 1.99, "decode_peak_gb": 2.69, "encode_peak_gb": 1.71}
+[92mSuccessfully preprocessed all matching files.[0m
+{"res": "2560x1440", "vae": "int8", "decode_s": 3.47, "encode_s": 2.08, "decode_peak_gb": 1.74, "encode_peak_gb": 1.18, "decode_db": 58.34, "encode_db": 57.41, "latent_rel_err": 0.0075}
+{"res": "2560x1440", "vae": "fp16", "decode_s": 2.29, "encode_s": 1.35, "decode_peak_gb": 1.97, "encode_peak_gb": 1.44, "decode_db": 66.0, "encode_db": 67.5, "latent_rel_err": 0.0016}
+{"res": "3840x2160", "vae": "fp32", "decode_s": 7.89, "encode_s": 4.64, "decode_peak_gb": 3.16, "encode_peak_gb": 2.07}
+{"res": "3840x2160", "vae": "int8", "decode_s": 8.0, "encode_s": 4.8, "decode_peak_gb": 2.18, "encode_peak_gb": 1.5, "decode_db": 58.98, "encode_db": 58.13, "latent_rel_err": 0.0076}
+{"res": "3840x2160", "vae": "fp16", "decode_s": 5.58, "encode_s": 3.28, "decode_peak_gb": 2.15, "encode_peak_gb": 1.51, "decode_db": 66.2, "encode_db": 67.56, "latent_rel_err": 0.0019}
