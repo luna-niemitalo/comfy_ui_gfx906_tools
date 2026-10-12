@@ -143,7 +143,7 @@ def oc-links [repo: path, oc: path, dry: bool] {
     # so they find the project as the parent of the tools/ they are invoked through
     let tools = ($oc | path join "tools")
     if ($tools | path type) == "symlink" {
-        error make {msg: $"($tools): expected a directory (the OC repo's own tools), found a link -- the pre-2026-10-12 layout; remove it by hand"}
+        error make {msg: $"($tools): expected a directory \(the OC tools\), found a link -- the pre-2026-10-12 layout; remove it by hand"}
     }
     if not ($tools | path exists) { act $dry $"mkdir ($tools)" { mkdir $tools } }
     for tool in (ls ($repo | path join "shot_tools" "*.py" | into glob) | get name) {
