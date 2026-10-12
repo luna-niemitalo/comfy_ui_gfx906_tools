@@ -1,0 +1,6 @@
+Traceback (most recent call last):
+    return int4_nodes.Gfx906Int4CLIPLoader().load_clip(CLIP_NAME, "krea2", str(device), True)[0]
+  File "/media/luna/work/tinker/ComfyUI/custom_nodes/ComfyUI-Gfx906Int4/nodes.py", line 389, in load_clip
+  File "/media/luna/work/tinker/ComfyUI/custom_nodes/ComfyUI-Gfx906Int4/ops.py", line 271, in __init__
+  File "/media/luna/work/tinker/ComfyUI/custom_nodes/ComfyUI-Gfx906Int4/ops.py", line 212, in __init__
+torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 12.00 MiB. GPU 1 has a total capacity of 15.98 GiB of which 0 bytes is free. Of the allocated memory 2.02 GiB is allocated by PyTorch, and 6.55 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)

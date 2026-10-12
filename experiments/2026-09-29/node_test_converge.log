@@ -1,0 +1,91 @@
+[0mdirenv: loading /media/luna/work/tinker/ComfyUI/.envrc
+[0mdirenv: using flake ./nix
+[0mdirenv: nix-direnv: Using cached dev shell
+ComfyUI ROCm 7.2.53211 shell (gfx906)
+hipcc: /nix/store/mam4a3wdd1rls10jm1vvb3pw8lbz2ivr-clr-7.2.3/bin/hipcc
+HIP version: 7.2.53211-9999
+nixpkgs-AMD clang version 22.0.0 (https://github.com/ROCm/llvm-project/tree/rocm-7.2.3 rocm-7.2.3)
+Target: x86_64-unknown-linux-gnu
+Thread model: posix
+InstalledDir: /nix/store/sphzxfs5f2w29fx0fhs0pn42yyxfyp8h-rocm-toolchain/bin
+Configuration file: /nix/store/sphzxfs5f2w29fx0fhs0pn42yyxfyp8h-rocm-toolchain/bin/x86_64-unknown-linux-gnu.cfg
+
+[37mROCk module is loaded[0m
+=====================    
+HSA System Attributes    
+=====================    
+Runtime Version:         1.18
+Runtime Ext Version:     1.15
+System Timestamp Freq.:  1000.000000MHz
+Sig. Max Wait Duration:  18446744073709551615 (0xFFFFFFFFFFFFFFFF) (timestamp count)
+Machine Model:           LARGE                              
+System Endianness:       LITTLE                             
+
+ROCM_ROOT        = /nix/store/mam4a3wdd1rls10jm1vvb3pw8lbz2ivr-clr-7.2.3
+HIPBLASLT_ROOT   = /nix/store/8plqmf5xmyyzi90zvf8fp3322lr2brb4-hipblaslt-7.2.3
+MIOPEN_ROOT      = /nix/store/yq3iql1j2sqjdq1hgfn6i39l1z62idrq-miopen-7.2.3
+CPU BLAS (LP64)  = /nix/store/dmsl71kqvflbda92d4w0qzmjx1mqj1p6-openblas-0.3.33/lib
+
+Ready.
+WARNING:root:Error while calling comfy_entrypoint in /media/luna/work/tinker/ComfyUI/comfy_extras/nodes_replacements.py: 'NoneType' object has no attribute 'node_replace_manager'
+[MultiGPU Core Patching] Patching mm.get_torch_device, mm.text_encoder_device, mm.unet_offload_device
+[MultiGPU DEBUG] Initial current_device: cuda:0
+[MultiGPU DEBUG] Initial current_text_encoder_device: cuda:0
+[MultiGPU DEBUG] Initial current_unet_offload_device: cuda:0
+[MultiGPU] Patched comfy.model_management.current_stream to honor CUDA device arguments
+[MultiGPU] Patched comfy.sample.sample with runtime device guard
+[MultiGPU] Patched comfy.sample.sample_custom with runtime device guard
+[MultiGPU] Applied comfy_kitchen CUDA DLPack device guard patch (P2P-aware)
+[MultiGPU] DynamicVRAM not enabled; skipping multi-device aimdo initialization
+[MultiGPU] Initiating custom_node Registration. . .
+-----------------------------------------------
+custom_node                   Found     Nodes
+-----------------------------------------------
+ComfyUI-LTXVideo                  N         0
+ComfyUI-Florence2                 Y         2
+ComfyUI_bitsandbytes_NF4          N         0
+x-flux-comfyui                    N         0
+ComfyUI-MMAudio                   N         0
+ComfyUI-GGUF                      Y        18
+PuLID_ComfyUI                     N         0
+ComfyUI-WanVideoWrapper           N         0
+-----------------------------------------------
+[MultiGPU] Registration complete. Final mappings: CheckpointLoaderAdvancedMultiGPU, CheckpointLoaderAdvancedDisTorch2MultiGPU, DeviceSelectorMultiGPU, UNetLoaderLP, UNETLoaderMultiGPU, VAELoaderMultiGPU, CLIPLoaderMultiGPU, DualCLIPLoaderMultiGPU, TripleCLIPLoaderMultiGPU, QuadrupleCLIPLoaderMultiGPU, CLIPVisionLoaderMultiGPU, CheckpointLoaderSimpleMultiGPU, ControlNetLoaderMultiGPU, DiffusersLoaderMultiGPU, DiffControlNetLoaderMultiGPU, UNETLoaderDisTorch2MultiGPU, VAELoaderDisTorch2MultiGPU, CLIPLoaderDisTorch2MultiGPU, DualCLIPLoaderDisTorch2MultiGPU, TripleCLIPLoaderDisTorch2MultiGPU, QuadrupleCLIPLoaderDisTorch2MultiGPU, CLIPVisionLoaderDisTorch2MultiGPU, CheckpointLoaderSimpleDisTorch2MultiGPU, ControlNetLoaderDisTorch2MultiGPU, DiffusersLoaderDisTorch2MultiGPU, DiffControlNetLoaderDisTorch2MultiGPU, Florence2ModelLoaderMultiGPU, DownloadAndLoadFlorence2ModelMultiGPU, UnetLoaderGGUFDisTorchMultiGPU, UnetLoaderGGUFAdvancedDisTorchMultiGPU, CLIPLoaderGGUFDisTorchMultiGPU, DualCLIPLoaderGGUFDisTorchMultiGPU, TripleCLIPLoaderGGUFDisTorchMultiGPU, QuadrupleCLIPLoaderGGUFDisTorchMultiGPU, UnetLoaderGGUFDisTorch2MultiGPU, UnetLoaderGGUFAdvancedDisTorch2MultiGPU, CLIPLoaderGGUFDisTorch2MultiGPU, DualCLIPLoaderGGUFDisTorch2MultiGPU, TripleCLIPLoaderGGUFDisTorch2MultiGPU, QuadrupleCLIPLoaderGGUFDisTorch2MultiGPU, UnetLoaderGGUFMultiGPU, UnetLoaderGGUFAdvancedMultiGPU, CLIPLoaderGGUFMultiGPU, DualCLIPLoaderGGUFMultiGPU, TripleCLIPLoaderGGUFMultiGPU, QuadrupleCLIPLoaderGGUFMultiGPU
+WARNING:root:WARNING: some comfy_extras/ nodes did not import correctly. This may be because they are missing some dependencies.
+
+WARNING:root:IMPORT FAILED: nodes_replacements.py
+WARNING:root:
+This issue might be caused by new missing dependencies added the last time you updated ComfyUI.
+WARNING:root:Please do a: pip install -r requirements.txt
+WARNING:root:
+[MultiGPU Issue21] Registered ModelPatcherDynamic._load_list guard
+[MultiGPU Core Patching] text_encoder_device_patched returning device: cuda:1 (current_text_encoder_device=cuda:1)
+[MultiGPU CUDA Guard] Switching CUDA current device 0 -> 1 (NodeOverride.load_vae)
+[MultiGPU CUDA Guard] Restored CUDA current device 1 -> 0 (NodeOverride.load_vae)
+[92mSuccessfully preprocessed all matching files.[0m
+Checking AMD architecture for optimal settings...
+Detected AMD architecture: gfx906
+/media/luna/models/unet/krea2/museByStableYogi_v35Int4Extended.safetensors
+Current Working Directory: /media/luna/work/tinker/ComfyUI
+[Gfx906Int4UnetLoader] quantized=39 convrot_repacked=224 passthrough_tensors=167 device=cuda:0
+/media/luna/models/text_encoders/qwen3vl_4b_bf16.safetensors
+Current Working Directory: /media/luna/work/tinker/ComfyUI
+[Gfx906Int4TranscodeCLIP] converted=356 skipped=0 sources={'plain': 356}
+/media/luna/models/vae/qwenImageVAE_qwenImageVAE.safetensors
+Current Working Directory: /media/luna/work/tinker/ComfyUI
+[MultiGPU Runtime] Using runtime device cuda:0 (comfy.sample.sample:ModelPatcher)
+  0%|          | 0/8 [00:00<?, ?it/s] 12%|█▎        | 1/8 [00:03<00:21,  3.06s/it] 25%|██▌       | 2/8 [00:04<00:14,  2.38s/it] 38%|███▊      | 3/8 [00:06<00:10,  2.17s/it] 50%|█████     | 4/8 [00:08<00:08,  2.08s/it] 62%|██████▎   | 5/8 [00:10<00:06,  2.03s/it] 75%|███████▌  | 6/8 [00:12<00:04,  2.01s/it] 88%|████████▊ | 7/8 [00:14<00:02,  2.00s/it]100%|██████████| 8/8 [00:16<00:00,  2.00s/it]100%|██████████| 8/8 [00:16<00:00,  2.09s/it]
+[Resolution Growth Progressive] 1280x720 -> up to 3840x2160, output 2560x1440, converge at 35.0 dB: 1536x864 s0.499 a1.00, 1792x1008 s0.441 a0.70, 2048x1152 s0.386 a0.48, 2304x1296 s0.334 a0.33, 2560x1440 s0.285 a0.22, 2816x1584 s0.236 a0.14, 3072x1728 s0.187 a0.08, 3328x1872 s0.140 a0.04, 3584x2016 s0.092 a0.02, 3840x2160 s0.046 a0.00
+/media/luna/work/tinker/ComfyUI/venv/lib/python3.13/site-packages/torch/backends/cudnn/__init__.py:177: UserWarning: cuDNN Benchmark limit is not supported in MIOpen and will have no effect. (Triggered internally at /media/luna/work/tinker/ComfyUI/dependencies/pytorch/torch/csrc/cuda/Module.cpp:2116.)
+  torch._C._cuda_set_cudnn_benchmark_limit(_benchmark_limit)
+[Resolution Growth Progressive] step 1: internal 1536x864, sigma 0.499, anchor 1.00, change -, noise 0.40
+[Resolution Growth Progressive] step 2: internal 1792x1008, sigma 0.441, anchor 0.70, change 23.9 dB, noise 0.57
+[Resolution Growth Progressive] step 3: internal 2048x1152, sigma 0.386, anchor 0.48, change 25.1 dB, noise 0.75
+[Resolution Growth Progressive] step 4: internal 2304x1296, sigma 0.334, anchor 0.33, change 26.4 dB, noise 0.92
+[Resolution Growth Progressive] step 5: internal 2560x1440, sigma 0.285, anchor 0.22, change 27.7 dB, noise 1.10
+[Resolution Growth Progressive] step 6: internal 2816x1584, sigma 0.236, anchor 0.14, change 29.3 dB, noise 1.09
+[Resolution Growth Progressive] step 7: internal 3072x1728, sigma 0.187, anchor 0.08, change 31.1 dB, noise 1.08
+[Resolution Growth Progressive] step 8: internal 3328x1872, sigma 0.140, anchor 0.04, change 33.0 dB, noise 1.03
+[Resolution Growth Progressive] step 9: internal 3584x2016, sigma 0.092, anchor 0.02, change 35.5 dB, noise 0.95
+[Resolution Growth Progressive] stopped: converged (35.5 >= 35.0 dB) after 9 of 10 steps
+{"node": "progressive", "size": [2560, 1440], "latent": [1, 16, 1, 180, 320], "seconds": 216.5, "last_report_line": "stopped: converged (35.5 >= 35.0 dB) after 9 of 10 steps", "stop_requests_left": []}

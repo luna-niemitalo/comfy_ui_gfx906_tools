@@ -1,0 +1,90 @@
+[0mdirenv: loading /media/luna/work/tinker/ComfyUI/.envrc
+[0mdirenv: using flake ./nix
+[0mdirenv: nix-direnv: Using cached dev shell
+ComfyUI ROCm 7.2.53211 shell (gfx906)
+hipcc: /nix/store/mam4a3wdd1rls10jm1vvb3pw8lbz2ivr-clr-7.2.3/bin/hipcc
+HIP version: 7.2.53211-9999
+nixpkgs-AMD clang version 22.0.0 (https://github.com/ROCm/llvm-project/tree/rocm-7.2.3 rocm-7.2.3)
+Target: x86_64-unknown-linux-gnu
+Thread model: posix
+InstalledDir: /nix/store/sphzxfs5f2w29fx0fhs0pn42yyxfyp8h-rocm-toolchain/bin
+Configuration file: /nix/store/sphzxfs5f2w29fx0fhs0pn42yyxfyp8h-rocm-toolchain/bin/x86_64-unknown-linux-gnu.cfg
+
+[37mROCk module is loaded[0m
+=====================    
+HSA System Attributes    
+=====================    
+Runtime Version:         1.18
+Runtime Ext Version:     1.15
+System Timestamp Freq.:  1000.000000MHz
+Sig. Max Wait Duration:  18446744073709551615 (0xFFFFFFFFFFFFFFFF) (timestamp count)
+Machine Model:           LARGE                              
+System Endianness:       LITTLE                             
+
+ROCM_ROOT        = /nix/store/mam4a3wdd1rls10jm1vvb3pw8lbz2ivr-clr-7.2.3
+HIPBLASLT_ROOT   = /nix/store/8plqmf5xmyyzi90zvf8fp3322lr2brb4-hipblaslt-7.2.3
+MIOPEN_ROOT      = /nix/store/yq3iql1j2sqjdq1hgfn6i39l1z62idrq-miopen-7.2.3
+CPU BLAS (LP64)  = /nix/store/dmsl71kqvflbda92d4w0qzmjx1mqj1p6-openblas-0.3.33/lib
+
+Ready.
+WARNING:root:Error while calling comfy_entrypoint in /media/luna/work/tinker/ComfyUI/comfy_extras/nodes_replacements.py: 'NoneType' object has no attribute 'node_replace_manager'
+[MultiGPU Core Patching] Patching mm.get_torch_device, mm.text_encoder_device, mm.unet_offload_device
+[MultiGPU DEBUG] Initial current_device: cuda:0
+[MultiGPU DEBUG] Initial current_text_encoder_device: cuda:0
+[MultiGPU DEBUG] Initial current_unet_offload_device: cuda:0
+[MultiGPU] Patched comfy.model_management.current_stream to honor CUDA device arguments
+[MultiGPU] Patched comfy.sample.sample with runtime device guard
+[MultiGPU] Patched comfy.sample.sample_custom with runtime device guard
+[MultiGPU] Applied comfy_kitchen CUDA DLPack device guard patch (P2P-aware)
+[MultiGPU] DynamicVRAM not enabled; skipping multi-device aimdo initialization
+[MultiGPU] Initiating custom_node Registration. . .
+-----------------------------------------------
+custom_node                   Found     Nodes
+-----------------------------------------------
+ComfyUI-LTXVideo                  N         0
+ComfyUI-Florence2                 Y         2
+ComfyUI_bitsandbytes_NF4          N         0
+x-flux-comfyui                    N         0
+ComfyUI-MMAudio                   N         0
+ComfyUI-GGUF                      Y        18
+PuLID_ComfyUI                     N         0
+ComfyUI-WanVideoWrapper           N         0
+-----------------------------------------------
+[MultiGPU] Registration complete. Final mappings: CheckpointLoaderAdvancedMultiGPU, CheckpointLoaderAdvancedDisTorch2MultiGPU, DeviceSelectorMultiGPU, UNetLoaderLP, UNETLoaderMultiGPU, VAELoaderMultiGPU, CLIPLoaderMultiGPU, DualCLIPLoaderMultiGPU, TripleCLIPLoaderMultiGPU, QuadrupleCLIPLoaderMultiGPU, CLIPVisionLoaderMultiGPU, CheckpointLoaderSimpleMultiGPU, ControlNetLoaderMultiGPU, DiffusersLoaderMultiGPU, DiffControlNetLoaderMultiGPU, UNETLoaderDisTorch2MultiGPU, VAELoaderDisTorch2MultiGPU, CLIPLoaderDisTorch2MultiGPU, DualCLIPLoaderDisTorch2MultiGPU, TripleCLIPLoaderDisTorch2MultiGPU, QuadrupleCLIPLoaderDisTorch2MultiGPU, CLIPVisionLoaderDisTorch2MultiGPU, CheckpointLoaderSimpleDisTorch2MultiGPU, ControlNetLoaderDisTorch2MultiGPU, DiffusersLoaderDisTorch2MultiGPU, DiffControlNetLoaderDisTorch2MultiGPU, Florence2ModelLoaderMultiGPU, DownloadAndLoadFlorence2ModelMultiGPU, UnetLoaderGGUFDisTorchMultiGPU, UnetLoaderGGUFAdvancedDisTorchMultiGPU, CLIPLoaderGGUFDisTorchMultiGPU, DualCLIPLoaderGGUFDisTorchMultiGPU, TripleCLIPLoaderGGUFDisTorchMultiGPU, QuadrupleCLIPLoaderGGUFDisTorchMultiGPU, UnetLoaderGGUFDisTorch2MultiGPU, UnetLoaderGGUFAdvancedDisTorch2MultiGPU, CLIPLoaderGGUFDisTorch2MultiGPU, DualCLIPLoaderGGUFDisTorch2MultiGPU, TripleCLIPLoaderGGUFDisTorch2MultiGPU, QuadrupleCLIPLoaderGGUFDisTorch2MultiGPU, UnetLoaderGGUFMultiGPU, UnetLoaderGGUFAdvancedMultiGPU, CLIPLoaderGGUFMultiGPU, DualCLIPLoaderGGUFMultiGPU, TripleCLIPLoaderGGUFMultiGPU, QuadrupleCLIPLoaderGGUFMultiGPU
+WARNING:root:WARNING: some comfy_extras/ nodes did not import correctly. This may be because they are missing some dependencies.
+
+WARNING:root:IMPORT FAILED: nodes_replacements.py
+WARNING:root:
+This issue might be caused by new missing dependencies added the last time you updated ComfyUI.
+WARNING:root:Please do a: pip install -r requirements.txt
+WARNING:root:
+[MultiGPU Issue21] Registered ModelPatcherDynamic._load_list guard
+[MultiGPU Core Patching] text_encoder_device_patched returning device: cuda:1 (current_text_encoder_device=cuda:1)
+[MultiGPU CUDA Guard] Switching CUDA current device 0 -> 1 (NodeOverride.load_vae)
+[MultiGPU CUDA Guard] Restored CUDA current device 1 -> 0 (NodeOverride.load_vae)
+[92mSuccessfully preprocessed all matching files.[0m
+Checking AMD architecture for optimal settings...
+Detected AMD architecture: gfx906
+/media/luna/models/unet/krea2/museByStableYogi_v35Int4Extended.safetensors
+Current Working Directory: /media/luna/work/tinker/ComfyUI
+[Gfx906Int4UnetLoader] quantized=39 convrot_repacked=224 passthrough_tensors=167 device=cuda:0
+/media/luna/models/text_encoders/qwen3vl_4b_bf16.safetensors
+Current Working Directory: /media/luna/work/tinker/ComfyUI
+[Gfx906Int4TranscodeCLIP] converted=356 skipped=0 sources={'plain': 356}
+/media/luna/models/vae/qwenImageVAE_qwenImageVAE.safetensors
+Current Working Directory: /media/luna/work/tinker/ComfyUI
+[MultiGPU Runtime] Using runtime device cuda:0 (comfy.sample.sample:ModelPatcher)
+  0%|          | 0/8 [00:00<?, ?it/s] 12%|█▎        | 1/8 [00:03<00:21,  3.06s/it] 25%|██▌       | 2/8 [00:04<00:14,  2.36s/it] 38%|███▊      | 3/8 [00:06<00:10,  2.15s/it] 50%|█████     | 4/8 [00:08<00:08,  2.05s/it] 62%|██████▎   | 5/8 [00:10<00:05,  2.00s/it] 75%|███████▌  | 6/8 [00:12<00:03,  1.97s/it] 88%|████████▊ | 7/8 [00:14<00:01,  1.97s/it]100%|██████████| 8/8 [00:16<00:00,  1.97s/it]100%|██████████| 8/8 [00:16<00:00,  2.06s/it]
+/media/luna/work/tinker/ComfyUI/venv/lib/python3.13/site-packages/torch/backends/cudnn/__init__.py:177: UserWarning: cuDNN Benchmark limit is not supported in MIOpen and will have no effect. (Triggered internally at /media/luna/work/tinker/ComfyUI/dependencies/pytorch/torch/csrc/cuda/Module.cpp:2116.)
+  torch._C._cuda_set_cudnn_benchmark_limit(_benchmark_limit)
+[Resolution Growth] 1280x720 -> 5760x3240: 1552x864 s0.499 a1.00, 1872x1056 s0.456 a0.77, 2256x1264 s0.408 a0.56, 2720x1520 s0.358 a0.39, 3280x1840 s0.301 a0.25, 3952x2224 s0.238 a0.14, 4768x2688 s0.168 a0.06, 5760x3232 s0.089 a0.02
+{"run": "geometric_5760x3240_8_to_3840x2160", "step": 1, "size": "1552x864", "mp": 1.34, "sigma": 0.499, "step_s": 4.6, "total_s": 4.6, "drift_db": 24.24, "change_db": 24.24, "noise": 1.72, "noise_720": 1.99, "detail": 10.97, "detail_720": 11.53}
+{"run": "geometric_5760x3240_8_to_3840x2160", "step": 2, "size": "1872x1056", "mp": 1.98, "sigma": 0.456, "step_s": 14.1, "total_s": 18.7, "drift_db": 24.18, "change_db": 23.89, "noise": 1.58, "noise_720": 2.17, "detail": 10.07, "detail_720": 11.59}
+{"run": "geometric_5760x3240_8_to_3840x2160", "step": 3, "size": "2256x1264", "mp": 2.85, "sigma": 0.408, "step_s": 15.0, "total_s": 33.7, "drift_db": 24.32, "change_db": 24.73, "noise": 1.47, "noise_720": 2.19, "detail": 9.2, "detail_720": 11.4}
+{"run": "geometric_5760x3240_8_to_3840x2160", "step": 4, "size": "2720x1520", "mp": 4.13, "sigma": 0.358, "step_s": 20.6, "total_s": 54.3, "drift_db": 24.47, "change_db": 25.91, "noise": 1.26, "noise_720": 2.12, "detail": 8.02, "detail_720": 11.03}
+{"run": "geometric_5760x3240_8_to_3840x2160", "step": 5, "size": "3280x1840", "mp": 6.04, "sigma": 0.301, "step_s": 31.4, "total_s": 85.7, "drift_db": 24.53, "change_db": 27.44, "noise": 1.03, "noise_720": 2.07, "detail": 6.71, "detail_720": 10.73}
+{"run": "geometric_5760x3240_8_to_3840x2160", "step": 6, "size": "3952x2224", "mp": 8.79, "sigma": 0.238, "step_s": 43.4, "total_s": 129.1, "drift_db": 24.59, "change_db": 29.36, "noise": 0.8, "noise_720": 2.0, "detail": 5.42, "detail_720": 10.38}
+{"run": "geometric_5760x3240_8_to_3840x2160", "step": 7, "size": "4768x2688", "mp": 12.82, "sigma": 0.168, "step_s": 65.3, "total_s": 194.4, "drift_db": 24.57, "change_db": 31.97, "noise": 0.6, "noise_720": 2.02, "detail": 4.23, "detail_720": 10.42}
+{"run": "geometric_5760x3240_8_to_3840x2160", "step": 8, "size": "5760x3232", "mp": 18.62, "sigma": 0.089, "step_s": 90.3, "total_s": 284.7, "drift_db": 24.55, "change_db": 36.2, "noise": 0.45, "noise_720": 2.05, "detail": 3.25, "detail_720": 10.52}
+{"run": "geometric_5760x3240_8_to_3840x2160", "step": 9, "size": "3840x2160", "mp": 8.29, "sigma": 0.0, "step_s": 15.3, "total_s": 300.0, "drift_db": 24.55, "change_db": 42.51, "noise": 0.64, "noise_720": 2.06, "detail": 4.79, "detail_720": 10.47}
+{"done": true, "plot": "/media/luna/work/tinker/ComfyUI/develop/out/progressive/scale/metrics_geometric_5760x3240_8_to_3840x2160.png"}

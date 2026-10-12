@@ -1,0 +1,30 @@
+# Transcribed from develop/succubus_oc/ComfyuiPipelineTemplate.json (Luna, 2026-09-30):
+# int4 muse Krea2 -> fused attention -> 2-GPU split; int4 CLIP; int8 VAE; compose at ~1 MP,
+# then Resolution Growth to the 4K-class target. Negative = zeroed positive (Krea2 ignores
+# negatives; exclusions go into the positive prompt as language). Composition size and growth
+# target come per shot from develop/succubus_oc/prompts/categories.yaml.
+loaders:
+  unet:
+    - {node: Gfx906Int4UnetLoader, unet_name: krea2/museByStableYogi_v35Int4Extended.safetensors,
+       device: cuda:0}
+    - {node: Gfx906FusedAttention, qk: int4, pv: u8, skip_below: 0.0001, sparse_tau: 0.0,
+       max_missed: 0.02, calibration: persistent}
+    - {node: Gfx906RowSplitKrea2, device: cuda:1, min_image_tokens: 1024}
+  clip: {node: Gfx906Int4CLIPLoader, clip_name: qwen3vl_4b_bf16.safetensors, type: krea2,
+         device: cuda:1, activation_rotation: true}
+  vae:
+    - {node: VAELoaderMultiGPU, vae_name: qwenImageVAE_qwenImageVAE.safetensors, device: cuda:1}
+    - {node: Gfx906Int8VAE}
+conditioning:
+  positive: {node: CLIPTextEncode, text: ""}
+  negative: {node: ConditioningZeroOut, source: positive}
+latent: {node: EmptyLatentImage, width: 1360, height: 768, batch_size: 1}
+sampler: {node: KSamplerAdvanced, add_noise: enable, noise_seed: 914872876216533,
+          steps: 8, cfg: 1, sampler_name: res_multistep, scheduler: sgm_uniform,
+          start_at_step: 0, end_at_step: 8, return_with_leftover_noise: disable}
+growth: {node: ResolutionGrowth, width: 3840, height: 2160, growth_mode: linear, growth_steps: 6,
+         step_px: 256, size_shape: 1.0, oversample: 1.0, sigma_start: 0.5, sigma_end: 0.0,
+         anchor: 1.0, anchor_shape: 2.0, cfg: 1.0, tile_size: 1024, tile_overlap: 256,
+         tile_batch: 4, upscale_method: lanczos, upscale_path: vae}
+vae_decode: {node: VAEDecodeTiled, tile_size: 512, overlap: 64,
+             temporal_size: 64, temporal_overlap: 8}

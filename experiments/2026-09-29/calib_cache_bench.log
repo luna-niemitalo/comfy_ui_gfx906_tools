@@ -1,0 +1,236 @@
+[0mdirenv: loading /media/luna/work/tinker/ComfyUI/.envrc
+[0mdirenv: using flake ./nix
+[0mdirenv: nix-direnv: Using cached dev shell
+ComfyUI ROCm 7.2.53211 shell (gfx906)
+hipcc: /nix/store/mam4a3wdd1rls10jm1vvb3pw8lbz2ivr-clr-7.2.3/bin/hipcc
+HIP version: 7.2.53211-9999
+nixpkgs-AMD clang version 22.0.0 (https://github.com/ROCm/llvm-project/tree/rocm-7.2.3 rocm-7.2.3)
+Target: x86_64-unknown-linux-gnu
+Thread model: posix
+InstalledDir: /nix/store/sphzxfs5f2w29fx0fhs0pn42yyxfyp8h-rocm-toolchain/bin
+Configuration file: /nix/store/sphzxfs5f2w29fx0fhs0pn42yyxfyp8h-rocm-toolchain/bin/x86_64-unknown-linux-gnu.cfg
+
+[37mROCk module is loaded[0m
+=====================    
+HSA System Attributes    
+=====================    
+Runtime Version:         1.18
+Runtime Ext Version:     1.15
+System Timestamp Freq.:  1000.000000MHz
+Sig. Max Wait Duration:  18446744073709551615 (0xFFFFFFFFFFFFFFFF) (timestamp count)
+Machine Model:           LARGE                              
+System Endianness:       LITTLE                             
+
+ROCM_ROOT        = /nix/store/mam4a3wdd1rls10jm1vvb3pw8lbz2ivr-clr-7.2.3
+HIPBLASLT_ROOT   = /nix/store/8plqmf5xmyyzi90zvf8fp3322lr2brb4-hipblaslt-7.2.3
+MIOPEN_ROOT      = /nix/store/yq3iql1j2sqjdq1hgfn6i39l1z62idrq-miopen-7.2.3
+CPU BLAS (LP64)  = /nix/store/dmsl71kqvflbda92d4w0qzmjx1mqj1p6-openblas-0.3.33/lib
+
+Ready.
+INFO:OpenGL.acceleratesupport:No OpenGL_accelerate module loaded: No module named 'OpenGL_accelerate'
+WARNING:root:Error while calling comfy_entrypoint in /media/luna/work/tinker/ComfyUI/comfy_extras/nodes_replacements.py: 'NoneType' object has no attribute 'node_replace_manager'
+INFO:root:Skipping ComfyUI-ForLoops due to disable_all_custom_nodes and whitelist_custom_nodes
+INFO:root:Skipping ComfyUI-DepthAnythingV3 due to disable_all_custom_nodes and whitelist_custom_nodes
+INFO:root:Skipping websocket_image_save.py due to disable_all_custom_nodes and whitelist_custom_nodes
+INFO:root:Skipping ComfyUI-Flux2Klein-Enhancer due to disable_all_custom_nodes and whitelist_custom_nodes
+INFO:root:Skipping comfyui-krea2-controlnet due to disable_all_custom_nodes and whitelist_custom_nodes
+INFO:root:Skipping ComfyUI_Luna_QOL_Nodes due to disable_all_custom_nodes and whitelist_custom_nodes
+INFO:root:Skipping ComfyUI-PiD due to disable_all_custom_nodes and whitelist_custom_nodes
+INFO:root:Skipping ComfyUI-SPEED due to disable_all_custom_nodes and whitelist_custom_nodes
+INFO:root:Skipping ComfyUI-Florence2 due to disable_all_custom_nodes and whitelist_custom_nodes
+INFO:root:Skipping comfyui_segment_anything due to disable_all_custom_nodes and whitelist_custom_nodes
+INFO:root:ComfyUI-GGUF: Allowing full torch compile
+INFO:root:Skipping ComfyUI-Krea2-Projector-Tuner due to disable_all_custom_nodes and whitelist_custom_nodes
+INFO:MultiGPU:[MultiGPU Core Patching] Patching mm.soft_empty_cache for Comprehensive Memory Management (VRAM + CPU + Store Pruning)
+[MultiGPU Core Patching] Patching mm.get_torch_device, mm.text_encoder_device, mm.unet_offload_device
+[MultiGPU DEBUG] Initial current_device: cuda:0
+[MultiGPU DEBUG] Initial current_text_encoder_device: cuda:0
+[MultiGPU DEBUG] Initial current_unet_offload_device: cuda:0
+[MultiGPU] Patched comfy.model_management.current_stream to honor CUDA device arguments
+[MultiGPU] Patched comfy.sample.sample with runtime device guard
+[MultiGPU] Patched comfy.sample.sample_custom with runtime device guard
+[MultiGPU] Applied comfy_kitchen CUDA DLPack device guard patch (P2P-aware)
+[MultiGPU] DynamicVRAM not enabled; skipping multi-device aimdo initialization
+[MultiGPU] Initiating custom_node Registration. . .
+-----------------------------------------------
+custom_node                   Found     Nodes
+-----------------------------------------------
+ComfyUI-LTXVideo                  N         0
+ComfyUI-Florence2                 Y         2
+ComfyUI_bitsandbytes_NF4          N         0
+x-flux-comfyui                    N         0
+ComfyUI-MMAudio                   N         0
+ComfyUI-GGUF                      Y        18
+PuLID_ComfyUI                     N         0
+ComfyUI-WanVideoWrapper           N         0
+-----------------------------------------------
+[MultiGPU] Registration complete. Final mappings: CheckpointLoaderAdvancedMultiGPU, CheckpointLoaderAdvancedDisTorch2MultiGPU, DeviceSelectorMultiGPU, UNetLoaderLP, UNETLoaderMultiGPU, VAELoaderMultiGPU, CLIPLoaderMultiGPU, DualCLIPLoaderMultiGPU, TripleCLIPLoaderMultiGPU, QuadrupleCLIPLoaderMultiGPU, CLIPVisionLoaderMultiGPU, CheckpointLoaderSimpleMultiGPU, ControlNetLoaderMultiGPU, DiffusersLoaderMultiGPU, DiffControlNetLoaderMultiGPU, UNETLoaderDisTorch2MultiGPU, VAELoaderDisTorch2MultiGPU, CLIPLoaderDisTorch2MultiGPU, DualCLIPLoaderDisTorch2MultiGPU, TripleCLIPLoaderDisTorch2MultiGPU, QuadrupleCLIPLoaderDisTorch2MultiGPU, CLIPVisionLoaderDisTorch2MultiGPU, CheckpointLoaderSimpleDisTorch2MultiGPU, ControlNetLoaderDisTorch2MultiGPU, DiffusersLoaderDisTorch2MultiGPU, DiffControlNetLoaderDisTorch2MultiGPU, Florence2ModelLoaderMultiGPU, DownloadAndLoadFlorence2ModelMultiGPU, UnetLoaderGGUFDisTorchMultiGPU, UnetLoaderGGUFAdvancedDisTorchMultiGPU, CLIPLoaderGGUFDisTorchMultiGPU, DualCLIPLoaderGGUFDisTorchMultiGPU, TripleCLIPLoaderGGUFDisTorchMultiGPU, QuadrupleCLIPLoaderGGUFDisTorchMultiGPU, UnetLoaderGGUFDisTorch2MultiGPU, UnetLoaderGGUFAdvancedDisTorch2MultiGPU, CLIPLoaderGGUFDisTorch2MultiGPU, DualCLIPLoaderGGUFDisTorch2MultiGPU, TripleCLIPLoaderGGUFDisTorch2MultiGPU, QuadrupleCLIPLoaderGGUFDisTorch2MultiGPU, UnetLoaderGGUFMultiGPU, UnetLoaderGGUFAdvancedMultiGPU, CLIPLoaderGGUFMultiGPU, DualCLIPLoaderGGUFMultiGPU, TripleCLIPLoaderGGUFMultiGPU, QuadrupleCLIPLoaderGGUFMultiGPU
+INFO:root:Skipping ComfyUI_TiledKSampler due to disable_all_custom_nodes and whitelist_custom_nodes
+INFO:root:Skipping ComfyUI-DepthAnythingV2 due to disable_all_custom_nodes and whitelist_custom_nodes
+INFO:root:Skipping ComfyUI-SAM3 due to disable_all_custom_nodes and whitelist_custom_nodes
+INFO:root:Skipping ComfyUI-RMBG due to disable_all_custom_nodes and whitelist_custom_nodes
+INFO:root:Skipping ComfyUI-Krea2TextEncoder due to disable_all_custom_nodes and whitelist_custom_nodes
+INFO:root:Skipping ComfyUI-ResolutionGrowth due to disable_all_custom_nodes and whitelist_custom_nodes
+INFO:root:Skipping ComfyUI-ConditioningKrea2Rebalance due to disable_all_custom_nodes and whitelist_custom_nodes
+INFO:root:
+Import times for custom nodes:
+INFO:root:   0.0 seconds: /media/luna/work/tinker/ComfyUI/custom_nodes/ComfyUI-MultiGPU
+INFO:root:   0.0 seconds: /media/luna/work/tinker/ComfyUI/custom_nodes/ComfyUI-GGUF
+INFO:root:   0.0 seconds: /media/luna/work/tinker/ComfyUI/custom_nodes/ComfyUI-Gfx906Int4
+INFO:root:
+WARNING:root:WARNING: some comfy_extras/ nodes did not import correctly. This may be because they are missing some dependencies.
+
+WARNING:root:IMPORT FAILED: nodes_replacements.py
+WARNING:root:
+This issue might be caused by new missing dependencies added the last time you updated ComfyUI.
+WARNING:root:Please do a: pip install -r requirements.txt
+WARNING:root:
+INFO:root:model weight dtype torch.float16, manual cast: None
+INFO:root:model_type FLUX
+INFO:root:Model storage policy: fast_disk=False paths=['/media/luna/models/unet/krea2/museByStableYogi_v35Int4Extended.safetensors']
+[MultiGPU Issue21] Registered ModelPatcherDynamic._load_list guard
+[MultiGPU Core Patching] text_encoder_device_patched returning device: cuda:1 (current_text_encoder_device=cuda:1)
+INFO:root:Model storage policy: fast_disk=False paths=['/media/luna/models/text_encoders/qwen3vl_4b_bf16.safetensors']
+INFO:root:Requested to load Krea2TEModel_
+INFO:root:loaded completely;  8464.46 MB loaded, full load: True
+INFO:root:CLIP/text encoder model load device: cuda:1, offload device: cuda:0, current: cuda:1, dtype: torch.float16
+[MultiGPU CUDA Guard] Switching CUDA current device 0 -> 1 (NodeOverride.load_vae)
+INFO:root:Model storage policy: fast_disk=False paths=['/media/luna/models/vae/qwenImageVAE_qwenImageVAE.safetensors']
+INFO:root:Using split attention in VAE
+INFO:root:Using split attention in VAE
+INFO:root:VAE load device: cuda:1, offload device: cuda:1, dtype: torch.float16
+[MultiGPU CUDA Guard] Restored CUDA current device 1 -> 0 (NodeOverride.load_vae)
+[92mSuccessfully preprocessed all matching files.[0m
+Checking AMD architecture for optimal settings...
+Detected AMD architecture: gfx906
+/media/luna/models/unet/krea2/museByStableYogi_v35Int4Extended.safetensors
+Current Working Directory: /media/luna/work/tinker/ComfyUI
+[Gfx906Int4UnetLoader] quantized=39 convrot_repacked=224 passthrough_tensors=167 device=cuda:0
+/media/luna/models/text_encoders/qwen3vl_4b_bf16.safetensors
+Current Working Directory: /media/luna/work/tinker/ComfyUI
+[Gfx906Int4TranscodeCLIP] converted=356 skipped=0 sources={'plain': 356}
+/media/luna/models/vae/qwenImageVAE_qwenImageVAE.safetensors
+Current Working Directory: /media/luna/work/tinker/ComfyUI
+INFO:root:[Gfx906 Attention] calibration cache /media/luna/work/tinker/ComfyUI/develop/out/calib_cache/user/__gfx906_int4/attention_calibration.json: 0 entries
+INFO:root:Requested to load Krea2TEModel_
+[MultiGPU Runtime] Using runtime device cuda:0 (comfy.sample.sample:ModelPatcher)
+INFO:root:Requested to load Krea2
+INFO:root:0 models unloaded.
+INFO:root:loaded completely;  193.63 MB loaded, full load: True
+  0%|          | 0/8 [00:00<?, ?it/s] 12%|█▎        | 1/8 [00:21<02:28, 21.23s/it] 25%|██▌       | 2/8 [00:42<02:06, 21.07s/it] 38%|███▊      | 3/8 [01:03<01:46, 21.26s/it] 50%|█████     | 4/8 [01:25<01:25, 21.45s/it] 62%|██████▎   | 5/8 [01:47<01:04, 21.63s/it] 75%|███████▌  | 6/8 [02:09<00:43, 21.77s/it] 88%|████████▊ | 7/8 [02:31<00:21, 21.88s/it]100%|██████████| 8/8 [02:53<00:00, 22.01s/it]100%|██████████| 8/8 [02:53<00:00, 21.73s/it]
+INFO:root:Requested to load WanVAE
+INFO:root:loaded completely;  242.03 MB loaded, full load: True
+{"render": "learn_1", "seconds": 178.0}
+INFO:root:Requested to load Krea2TEModel_
+INFO:root:loaded completely;  995.46 MB loaded, full load: True
+[MultiGPU Runtime] Using runtime device cuda:0 (comfy.sample.sample:ModelPatcher)
+INFO:root:Requested to load Krea2
+INFO:root:0 models unloaded.
+  0%|          | 0/8 [00:00<?, ?it/s] 12%|█▎        | 1/8 [00:21<02:33, 21.91s/it] 25%|██▌       | 2/8 [00:44<02:13, 22.19s/it] 38%|███▊      | 3/8 [01:06<01:51, 22.29s/it] 50%|█████     | 4/8 [01:29<01:29, 22.36s/it] 62%|██████▎   | 5/8 [01:51<01:07, 22.39s/it] 75%|███████▌  | 6/8 [02:14<00:44, 22.47s/it] 88%|████████▊ | 7/8 [02:36<00:22, 22.49s/it]100%|██████████| 8/8 [02:59<00:00, 22.51s/it]100%|██████████| 8/8 [02:59<00:00, 22.42s/it]
+INFO:root:Requested to load WanVAE
+INFO:root:loaded completely;  242.03 MB loaded, full load: True
+{"render": "learn_2", "seconds": 180.9}
+INFO:root:Requested to load Krea2TEModel_
+INFO:root:loaded completely;  995.46 MB loaded, full load: True
+[MultiGPU Runtime] Using runtime device cuda:0 (comfy.sample.sample:ModelPatcher)
+INFO:root:Requested to load Krea2
+INFO:root:0 models unloaded.
+  0%|          | 0/8 [00:00<?, ?it/s] 12%|█▎        | 1/8 [00:22<02:35, 22.28s/it] 25%|██▌       | 2/8 [00:44<02:14, 22.44s/it] 38%|███▊      | 3/8 [01:07<01:52, 22.55s/it] 50%|█████     | 4/8 [01:30<01:30, 22.62s/it] 62%|██████▎   | 5/8 [01:53<01:08, 22.67s/it] 75%|███████▌  | 6/8 [02:15<00:45, 22.69s/it] 88%|████████▊ | 7/8 [02:38<00:22, 22.73s/it]100%|██████████| 8/8 [03:01<00:00, 22.75s/it]100%|██████████| 8/8 [03:01<00:00, 22.67s/it]
+INFO:root:Requested to load WanVAE
+INFO:root:loaded completely;  242.03 MB loaded, full load: True
+{"render": "learn_3", "seconds": 182.9}
+INFO:root:Requested to load Krea2TEModel_
+INFO:root:loaded completely;  995.46 MB loaded, full load: True
+[MultiGPU Runtime] Using runtime device cuda:0 (comfy.sample.sample:ModelPatcher)
+INFO:root:Requested to load Krea2
+INFO:root:0 models unloaded.
+  0%|          | 0/8 [00:00<?, ?it/s] 12%|█▎        | 1/8 [00:19<02:17, 19.59s/it] 25%|██▌       | 2/8 [00:39<01:58, 19.80s/it] 38%|███▊      | 3/8 [00:59<01:39, 19.83s/it] 50%|█████     | 4/8 [01:19<01:19, 19.88s/it] 62%|██████▎   | 5/8 [01:39<00:59, 19.91s/it] 75%|███████▌  | 6/8 [01:59<00:39, 19.94s/it] 88%|████████▊ | 7/8 [02:19<00:19, 19.94s/it]100%|██████████| 8/8 [02:39<00:00, 19.95s/it]100%|██████████| 8/8 [02:39<00:00, 19.91s/it]
+INFO:root:Requested to load WanVAE
+INFO:root:loaded completely;  242.03 MB loaded, full load: True
+{"render": "dense_1", "seconds": 160.8, "psnr_vs_dense_1": 138.1}
+INFO:root:Requested to load Krea2TEModel_
+INFO:root:loaded completely;  995.46 MB loaded, full load: True
+[MultiGPU Runtime] Using runtime device cuda:0 (comfy.sample.sample:ModelPatcher)
+INFO:root:Requested to load Krea2
+INFO:root:0 models unloaded.
+  0%|          | 0/8 [00:00<?, ?it/s]INFO:root:[Gfx906 Attention] cached calibration 6d4cc73d9fff8c35|img14400|rows128|tau0.995 (3 runs learned): 996/1344 heads sparse
+ 12%|█▎        | 1/8 [00:19<02:13, 19.02s/it] 25%|██▌       | 2/8 [00:38<01:55, 19.23s/it] 38%|███▊      | 3/8 [00:57<01:36, 19.31s/it] 50%|█████     | 4/8 [01:17<01:17, 19.31s/it] 62%|██████▎   | 5/8 [01:36<00:57, 19.31s/it] 75%|███████▌  | 6/8 [01:55<00:38, 19.35s/it] 88%|████████▊ | 7/8 [02:15<00:19, 19.31s/it]100%|██████████| 8/8 [02:34<00:00, 19.31s/it]100%|██████████| 8/8 [02:34<00:00, 19.30s/it]
+INFO:root:Requested to load WanVAE
+INFO:root:loaded completely;  242.03 MB loaded, full load: True
+{"render": "cached_1", "seconds": 156.0, "psnr_vs_dense_1": 19.7}
+INFO:root:Requested to load Krea2TEModel_
+INFO:root:loaded completely;  995.46 MB loaded, full load: True
+[MultiGPU Runtime] Using runtime device cuda:0 (comfy.sample.sample:ModelPatcher)
+INFO:root:Requested to load Krea2
+INFO:root:0 models unloaded.
+  0%|          | 0/8 [00:00<?, ?it/s] 12%|█▎        | 1/8 [00:19<02:18, 19.79s/it] 25%|██▌       | 2/8 [00:39<01:59, 19.85s/it] 38%|███▊      | 3/8 [00:59<01:39, 19.94s/it] 50%|█████     | 4/8 [01:19<01:19, 20.00s/it] 62%|██████▎   | 5/8 [01:39<01:00, 20.04s/it] 75%|███████▌  | 6/8 [02:00<00:40, 20.06s/it] 88%|████████▊ | 7/8 [02:20<00:20, 20.06s/it]100%|██████████| 8/8 [02:40<00:00, 20.09s/it]100%|██████████| 8/8 [02:40<00:00, 20.03s/it]
+INFO:root:Requested to load WanVAE
+INFO:root:loaded completely;  242.03 MB loaded, full load: True
+{"render": "dense_2", "seconds": 161.8, "psnr_vs_dense_1": 138.1}
+INFO:root:Requested to load Krea2TEModel_
+INFO:root:loaded completely;  995.46 MB loaded, full load: True
+[MultiGPU Runtime] Using runtime device cuda:0 (comfy.sample.sample:ModelPatcher)
+INFO:root:Requested to load Krea2
+INFO:root:0 models unloaded.
+  0%|          | 0/8 [00:00<?, ?it/s]INFO:root:[Gfx906 Attention] cached calibration 6d4cc73d9fff8c35|img14400|rows128|tau0.995 (4 runs learned): 996/1344 heads sparse
+ 12%|█▎        | 1/8 [00:19<02:14, 19.22s/it] 25%|██▌       | 2/8 [00:38<01:55, 19.30s/it] 38%|███▊      | 3/8 [00:58<01:36, 19.38s/it] 50%|█████     | 4/8 [01:17<01:17, 19.40s/it] 62%|██████▎   | 5/8 [01:36<00:58, 19.42s/it] 75%|███████▌  | 6/8 [01:56<00:38, 19.43s/it] 88%|████████▊ | 7/8 [02:15<00:19, 19.41s/it]100%|██████████| 8/8 [02:35<00:00, 19.43s/it]100%|██████████| 8/8 [02:35<00:00, 19.41s/it]
+INFO:root:Requested to load WanVAE
+INFO:root:loaded completely;  242.03 MB loaded, full load: True
+{"render": "cached_2", "seconds": 156.8, "psnr_vs_dense_1": 19.7}
+INFO:root:Requested to load Krea2TEModel_
+INFO:root:loaded completely;  995.46 MB loaded, full load: True
+[MultiGPU Runtime] Using runtime device cuda:0 (comfy.sample.sample:ModelPatcher)
+INFO:root:Requested to load Krea2
+INFO:root:0 models unloaded.
+  0%|          | 0/8 [00:00<?, ?it/s] 12%|█▎        | 1/8 [00:19<02:18, 19.74s/it] 25%|██▌       | 2/8 [00:39<01:59, 19.92s/it] 38%|███▊      | 3/8 [00:59<01:40, 20.02s/it] 50%|█████     | 4/8 [01:20<01:20, 20.08s/it] 62%|██████▎   | 5/8 [01:40<01:00, 20.11s/it] 75%|███████▌  | 6/8 [02:00<00:40, 20.12s/it] 88%|████████▊ | 7/8 [02:20<00:20, 20.14s/it]100%|██████████| 8/8 [02:40<00:00, 20.13s/it]100%|██████████| 8/8 [02:40<00:00, 20.09s/it]
+INFO:root:Requested to load WanVAE
+INFO:root:loaded completely;  242.03 MB loaded, full load: True
+{"render": "dense_3", "seconds": 162.3, "psnr_vs_dense_1": 138.1}
+INFO:root:Requested to load Krea2TEModel_
+INFO:root:loaded completely;  995.46 MB loaded, full load: True
+[MultiGPU Runtime] Using runtime device cuda:0 (comfy.sample.sample:ModelPatcher)
+INFO:root:Requested to load Krea2
+INFO:root:0 models unloaded.
+  0%|          | 0/8 [00:00<?, ?it/s]INFO:root:[Gfx906 Attention] cached calibration 6d4cc73d9fff8c35|img14400|rows128|tau0.995 (5 runs learned): 996/1344 heads sparse
+ 12%|█▎        | 1/8 [00:19<02:14, 19.17s/it] 25%|██▌       | 2/8 [00:38<01:56, 19.35s/it] 38%|███▊      | 3/8 [00:58<01:37, 19.44s/it] 50%|█████     | 4/8 [01:17<01:17, 19.48s/it] 62%|██████▎   | 5/8 [01:37<00:58, 19.49s/it] 75%|███████▌  | 6/8 [01:56<00:38, 19.50s/it] 88%|████████▊ | 7/8 [02:16<00:19, 19.45s/it]100%|██████████| 8/8 [02:35<00:00, 19.41s/it]100%|██████████| 8/8 [02:35<00:00, 19.43s/it]
+INFO:root:Requested to load WanVAE
+INFO:root:loaded completely;  242.03 MB loaded, full load: True
+{"render": "cached_3", "seconds": 157.0, "psnr_vs_dense_1": 19.7}
+INFO:root:Requested to load Krea2TEModel_
+INFO:root:loaded completely;  995.46 MB loaded, full load: True
+[MultiGPU Runtime] Using runtime device cuda:0 (comfy.sample.sample:ModelPatcher)
+INFO:root:Requested to load Krea2
+INFO:root:0 models unloaded.
+  0%|          | 0/8 [00:00<?, ?it/s]INFO:root:[Gfx906 Attention] block ('single', 0): 34/48 heads sparse, 17% of blocks skipped, missed mass median 0.73%
+INFO:root:[Gfx906 Attention] block ('single', 1): 48/48 heads sparse, 55% of blocks skipped, missed mass median 0.51%
+INFO:root:[Gfx906 Attention] block ('single', 2): 48/48 heads sparse, 11% of blocks skipped, missed mass median 0.39%
+INFO:root:[Gfx906 Attention] block ('single', 3): 48/48 heads sparse, 19% of blocks skipped, missed mass median 0.44%
+INFO:root:[Gfx906 Attention] block ('single', 4): 47/48 heads sparse, 14% of blocks skipped, missed mass median 0.38%
+INFO:root:[Gfx906 Attention] block ('single', 5): 48/48 heads sparse, 11% of blocks skipped, missed mass median 0.32%
+INFO:root:[Gfx906 Attention] block ('single', 6): 47/48 heads sparse, 16% of blocks skipped, missed mass median 0.45%
+INFO:root:[Gfx906 Attention] block ('single', 7): 48/48 heads sparse, 13% of blocks skipped, missed mass median 0.58%
+INFO:root:[Gfx906 Attention] block ('single', 8): 47/48 heads sparse, 15% of blocks skipped, missed mass median 0.49%
+INFO:root:[Gfx906 Attention] block ('single', 9): 48/48 heads sparse, 12% of blocks skipped, missed mass median 0.45%
+INFO:root:[Gfx906 Attention] block ('single', 10): 40/48 heads sparse, 9% of blocks skipped, missed mass median 0.57%
+INFO:root:[Gfx906 Attention] block ('single', 11): 48/48 heads sparse, 10% of blocks skipped, missed mass median 0.57%
+INFO:root:[Gfx906 Attention] block ('single', 12): 44/48 heads sparse, 21% of blocks skipped, missed mass median 0.76%
+INFO:root:[Gfx906 Attention] block ('single', 13): 48/48 heads sparse, 9% of blocks skipped, missed mass median 0.72%
+INFO:root:[Gfx906 Attention] block ('single', 14): 44/48 heads sparse, 15% of blocks skipped, missed mass median 0.73%
+INFO:root:[Gfx906 Attention] block ('single', 15): 48/48 heads sparse, 15% of blocks skipped, missed mass median 0.70%
+INFO:root:[Gfx906 Attention] block ('single', 16): 47/48 heads sparse, 18% of blocks skipped, missed mass median 0.66%
+INFO:root:[Gfx906 Attention] block ('single', 17): 46/48 heads sparse, 13% of blocks skipped, missed mass median 0.78%
+INFO:root:[Gfx906 Attention] block ('single', 18): 39/48 heads sparse, 12% of blocks skipped, missed mass median 1.03%
+INFO:root:[Gfx906 Attention] block ('single', 19): 44/48 heads sparse, 19% of blocks skipped, missed mass median 0.77%
+INFO:root:[Gfx906 Attention] block ('single', 20): 35/48 heads sparse, 10% of blocks skipped, missed mass median 0.98%
+INFO:root:[Gfx906 Attention] block ('single', 21): 42/48 heads sparse, 9% of blocks skipped, missed mass median 0.73%
+INFO:root:[Gfx906 Attention] block ('single', 22): 42/48 heads sparse, 14% of blocks skipped, missed mass median 0.62%
+INFO:root:[Gfx906 Attention] block ('single', 23): 48/48 heads sparse, 24% of blocks skipped, missed mass median 0.81%
+INFO:root:[Gfx906 Attention] block ('single', 24): 33/48 heads sparse, 21% of blocks skipped, missed mass median 1.21%
+INFO:root:[Gfx906 Attention] block ('single', 25): 41/48 heads sparse, 27% of blocks skipped, missed mass median 0.67%
+INFO:root:[Gfx906 Attention] block ('single', 26): 44/48 heads sparse, 18% of blocks skipped, missed mass median 0.54%
+INFO:root:[Gfx906 Attention] block ('single', 27): 44/48 heads sparse, 16% of blocks skipped, missed mass median 0.48%
+ 12%|█▎        | 1/8 [00:22<02:38, 22.60s/it] 25%|██▌       | 2/8 [00:41<02:03, 20.66s/it] 38%|███▊      | 3/8 [01:01<01:40, 20.06s/it] 50%|█████     | 4/8 [01:20<01:18, 19.74s/it] 62%|██████▎   | 5/8 [01:39<00:58, 19.57s/it] 75%|███████▌  | 6/8 [01:58<00:38, 19.42s/it] 88%|████████▊ | 7/8 [02:18<00:19, 19.32s/it]100%|██████████| 8/8 [02:36<00:00, 19.21s/it]100%|██████████| 8/8 [02:36<00:00, 19.62s/it]
+INFO:root:Requested to load WanVAE
+INFO:root:loaded completely;  242.03 MB loaded, full load: True
+{"render": "per_run", "seconds": 158.6, "psnr_vs_dense_1": 20.9}
+{"cache_file": ["attention_calibration.json"]}

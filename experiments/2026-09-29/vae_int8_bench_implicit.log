@@ -1,0 +1,5 @@
+{"int8_convs_patched": 67}
+{"res": "2560x1440", "vae": "fp32", "decode_s": 3.47, "encode_s": 2.02, "decode_peak_gb": 2.69, "encode_peak_gb": 1.71}
+{"res": "2560x1440", "vae": "int8", "decode_s": 2.59, "encode_s": 1.61, "decode_peak_gb": 1.74, "encode_peak_gb": 1.01, "decode_db": 58.34, "encode_db": 57.41, "latent_rel_err": 0.0075}
+{"res": "2560x1440", "vae": "fp16", "decode_s": 2.42, "encode_s": 1.43, "decode_peak_gb": 1.98, "encode_peak_gb": 1.44, "decode_db": 66.0, "encode_db": 67.5, "latent_rel_err": 0.0016}
+{"res": "2560x1440", "vae": "int8_fp16", "decode_s": 2.55, "encode_s": 1.61, "decode_peak_gb": 1.52, "encode_peak_gb": 1.12, "decode_db": 58.26, "encode_db": 57.43, "latent_rel_err": 0.0077}

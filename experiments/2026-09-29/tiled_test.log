@@ -1,0 +1,199 @@
+[0mdirenv: loading /media/luna/work/tinker/ComfyUI/.envrc
+[0mdirenv: using flake ./nix
+[0mdirenv: nix-direnv: Using cached dev shell
+ComfyUI ROCm 7.2.53211 shell (gfx906)
+hipcc: /nix/store/mam4a3wdd1rls10jm1vvb3pw8lbz2ivr-clr-7.2.3/bin/hipcc
+HIP version: 7.2.53211-9999
+nixpkgs-AMD clang version 22.0.0 (https://github.com/ROCm/llvm-project/tree/rocm-7.2.3 rocm-7.2.3)
+Target: x86_64-unknown-linux-gnu
+Thread model: posix
+InstalledDir: /nix/store/sphzxfs5f2w29fx0fhs0pn42yyxfyp8h-rocm-toolchain/bin
+Configuration file: /nix/store/sphzxfs5f2w29fx0fhs0pn42yyxfyp8h-rocm-toolchain/bin/x86_64-unknown-linux-gnu.cfg
+
+[37mROCk module is loaded[0m
+=====================    
+HSA System Attributes    
+=====================    
+Runtime Version:         1.18
+Runtime Ext Version:     1.15
+System Timestamp Freq.:  1000.000000MHz
+Sig. Max Wait Duration:  18446744073709551615 (0xFFFFFFFFFFFFFFFF) (timestamp count)
+Machine Model:           LARGE                              
+System Endianness:       LITTLE                             
+
+ROCM_ROOT        = /nix/store/mam4a3wdd1rls10jm1vvb3pw8lbz2ivr-clr-7.2.3
+HIPBLASLT_ROOT   = /nix/store/8plqmf5xmyyzi90zvf8fp3322lr2brb4-hipblaslt-7.2.3
+MIOPEN_ROOT      = /nix/store/yq3iql1j2sqjdq1hgfn6i39l1z62idrq-miopen-7.2.3
+CPU BLAS (LP64)  = /nix/store/dmsl71kqvflbda92d4w0qzmjx1mqj1p6-openblas-0.3.33/lib
+
+Ready.
+WARNING:root:Error while calling comfy_entrypoint in /media/luna/work/tinker/ComfyUI/comfy_extras/nodes_replacements.py: 'NoneType' object has no attribute 'node_replace_manager'
+[MultiGPU Core Patching] Patching mm.get_torch_device, mm.text_encoder_device, mm.unet_offload_device
+[MultiGPU DEBUG] Initial current_device: cuda:0
+[MultiGPU DEBUG] Initial current_text_encoder_device: cuda:0
+[MultiGPU DEBUG] Initial current_unet_offload_device: cuda:0
+[MultiGPU] Patched comfy.model_management.current_stream to honor CUDA device arguments
+[MultiGPU] Patched comfy.sample.sample with runtime device guard
+[MultiGPU] Patched comfy.sample.sample_custom with runtime device guard
+[MultiGPU] Applied comfy_kitchen CUDA DLPack device guard patch (P2P-aware)
+[MultiGPU] DynamicVRAM not enabled; skipping multi-device aimdo initialization
+[MultiGPU] Initiating custom_node Registration. . .
+-----------------------------------------------
+custom_node                   Found     Nodes
+-----------------------------------------------
+ComfyUI-LTXVideo                  N         0
+ComfyUI-Florence2                 Y         2
+ComfyUI_bitsandbytes_NF4          N         0
+x-flux-comfyui                    N         0
+ComfyUI-MMAudio                   N         0
+ComfyUI-GGUF                      Y        18
+PuLID_ComfyUI                     N         0
+ComfyUI-WanVideoWrapper           N         0
+-----------------------------------------------
+[MultiGPU] Registration complete. Final mappings: CheckpointLoaderAdvancedMultiGPU, CheckpointLoaderAdvancedDisTorch2MultiGPU, DeviceSelectorMultiGPU, UNetLoaderLP, UNETLoaderMultiGPU, VAELoaderMultiGPU, CLIPLoaderMultiGPU, DualCLIPLoaderMultiGPU, TripleCLIPLoaderMultiGPU, QuadrupleCLIPLoaderMultiGPU, CLIPVisionLoaderMultiGPU, CheckpointLoaderSimpleMultiGPU, ControlNetLoaderMultiGPU, DiffusersLoaderMultiGPU, DiffControlNetLoaderMultiGPU, UNETLoaderDisTorch2MultiGPU, VAELoaderDisTorch2MultiGPU, CLIPLoaderDisTorch2MultiGPU, DualCLIPLoaderDisTorch2MultiGPU, TripleCLIPLoaderDisTorch2MultiGPU, QuadrupleCLIPLoaderDisTorch2MultiGPU, CLIPVisionLoaderDisTorch2MultiGPU, CheckpointLoaderSimpleDisTorch2MultiGPU, ControlNetLoaderDisTorch2MultiGPU, DiffusersLoaderDisTorch2MultiGPU, DiffControlNetLoaderDisTorch2MultiGPU, Florence2ModelLoaderMultiGPU, DownloadAndLoadFlorence2ModelMultiGPU, UnetLoaderGGUFDisTorchMultiGPU, UnetLoaderGGUFAdvancedDisTorchMultiGPU, CLIPLoaderGGUFDisTorchMultiGPU, DualCLIPLoaderGGUFDisTorchMultiGPU, TripleCLIPLoaderGGUFDisTorchMultiGPU, QuadrupleCLIPLoaderGGUFDisTorchMultiGPU, UnetLoaderGGUFDisTorch2MultiGPU, UnetLoaderGGUFAdvancedDisTorch2MultiGPU, CLIPLoaderGGUFDisTorch2MultiGPU, DualCLIPLoaderGGUFDisTorch2MultiGPU, TripleCLIPLoaderGGUFDisTorch2MultiGPU, QuadrupleCLIPLoaderGGUFDisTorch2MultiGPU, UnetLoaderGGUFMultiGPU, UnetLoaderGGUFAdvancedMultiGPU, CLIPLoaderGGUFMultiGPU, DualCLIPLoaderGGUFMultiGPU, TripleCLIPLoaderGGUFMultiGPU, QuadrupleCLIPLoaderGGUFMultiGPU
+WARNING:root:WARNING: some comfy_extras/ nodes did not import correctly. This may be because they are missing some dependencies.
+
+WARNING:root:IMPORT FAILED: nodes_replacements.py
+WARNING:root:
+This issue might be caused by new missing dependencies added the last time you updated ComfyUI.
+WARNING:root:Please do a: pip install -r requirements.txt
+WARNING:root:
+[MultiGPU Issue21] Registered ModelPatcherDynamic._load_list guard
+[MultiGPU Core Patching] text_encoder_device_patched returning device: cuda:1 (current_text_encoder_device=cuda:1)
+[MultiGPU CUDA Guard] Switching CUDA current device 0 -> 1 (NodeOverride.load_vae)
+[MultiGPU CUDA Guard] Restored CUDA current device 1 -> 0 (NodeOverride.load_vae)
+[92mSuccessfully preprocessed all matching files.[0m
+Checking AMD architecture for optimal settings...
+Detected AMD architecture: gfx906
+/media/luna/models/unet/krea2/museByStableYogi_v35Int4Extended.safetensors
+Current Working Directory: /media/luna/work/tinker/ComfyUI
+[Gfx906Int4UnetLoader] quantized=39 convrot_repacked=224 passthrough_tensors=167 device=cuda:0
+/media/luna/models/text_encoders/qwen3vl_4b_bf16.safetensors
+Current Working Directory: /media/luna/work/tinker/ComfyUI
+[Gfx906Int4TranscodeCLIP] converted=356 skipped=0 sources={'plain': 356}
+/media/luna/models/vae/qwenImageVAE_qwenImageVAE.safetensors
+Current Working Directory: /media/luna/work/tinker/ComfyUI
+[MultiGPU Runtime] Using runtime device cuda:0 (comfy.sample.sample:ModelPatcher)
+  0%|          | 0/8 [00:00<?, ?it/s] 12%|█▎        | 1/8 [00:03<00:24,  3.48s/it] 25%|██▌       | 2/8 [00:06<00:20,  3.42s/it] 38%|███▊      | 3/8 [00:10<00:17,  3.42s/it] 50%|█████     | 4/8 [00:13<00:13,  3.44s/it] 62%|██████▎   | 5/8 [00:17<00:10,  3.46s/it] 75%|███████▌  | 6/8 [00:20<00:06,  3.49s/it] 88%|████████▊ | 7/8 [00:24<00:03,  3.51s/it]100%|██████████| 8/8 [00:27<00:00,  3.52s/it]100%|██████████| 8/8 [00:27<00:00,  3.49s/it]
+  0%|          | 0/4 [00:00<?, ?it/s] 25%|██▌       | 1/4 [00:24<01:13, 24.62s/it] 50%|█████     | 2/4 [00:49<00:50, 25.06s/it] 75%|███████▌  | 3/4 [01:15<00:25, 25.37s/it]100%|██████████| 4/4 [01:41<00:00, 25.59s/it]100%|██████████| 4/4 [01:41<00:00, 25.41s/it]
+{"variant": "t1024_o256_s0.5_anchor", "native_s": 28.2, "refine_s": 101.8, "detail": 10.99}
+  0%|          | 0/4 [00:00<?, ?it/s][W929 10:38:02.950391207 HIPCachingAllocator.cpp:3937] memory allocation failed with OOM on device 0 while trying to allocate 834666496 bytes (free: 790626304, total: 17163091968).
+ 25%|██▌       | 1/4 [00:26<01:20, 26.80s/it] 50%|█████     | 2/4 [00:52<00:52, 26.23s/it] 75%|███████▌  | 3/4 [01:19<00:26, 26.50s/it]100%|██████████| 4/4 [01:45<00:00, 26.33s/it]100%|██████████| 4/4 [01:45<00:00, 26.38s/it]
+{"variant": "t1024_o256_s0.35_anchor", "native_s": 28.2, "refine_s": 105.6, "detail": 9.68}
+  0%|          | 0/4 [00:00<?, ?it/s][W929 10:40:10.116520423 HIPCachingAllocator.cpp:3937] memory allocation failed with OOM on device 0 while trying to allocate 834666496 bytes (free: 260046848, total: 17163091968).
+[W929 10:40:10.558904288 HIPCachingAllocator.cpp:3937] memory allocation failed with OOM on device 0 while trying to allocate 834666496 bytes (free: 270532608, total: 17163091968).
+  0%|          | 0/4 [00:00<?, ?it/s]
+Traceback (most recent call last):
+  File "/media/luna/work/tinker/ComfyUI/develop/experiments/2026-09-29/tiled_test.py", line 123, in <module>
+    (out, _) = pipeline.call_node("SamplerCustomAdvanced", noise=noise, guider=guider, sampler=sampler,
+               ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                                  sigmas=prog.stage_sigmas(model, sigma_start, steps),
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                                  latent_image={"samples": up})
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/media/luna/work/tinker/ComfyUI/develop/harness/pipeline.py", line 75, in call_node
+    return fn(**kwargs)
+  File "/media/luna/work/tinker/ComfyUI/comfy_api/latest/_io.py", line 2053, in EXECUTE_NORMALIZED
+    to_return = cls.execute(*args, **kwargs)
+  File "/media/luna/work/tinker/ComfyUI/comfy_extras/nodes_custom_sampler.py", line 1055, in execute
+    samples = guider.sample(noise.generate_noise(latent), latent_image, sampler, sigmas, denoise_mask=noise_mask, callback=callback, disable_pbar=disable_pbar, seed=noise.seed)
+  File "/media/luna/work/tinker/ComfyUI/comfy/samplers.py", line 1335, in sample
+    output = executor.execute(noise, latent_image, sampler, sigmas, denoise_mask, callback, disable_pbar, seed, latent_shapes=latent_shapes)
+  File "/media/luna/work/tinker/ComfyUI/comfy/patcher_extension.py", line 113, in execute
+    return self.original(*args, **kwargs)
+           ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/media/luna/work/tinker/ComfyUI/comfy/samplers.py", line 1262, in outer_sample
+    output = self.inner_sample(noise, latent_image, device, sampler, sigmas, denoise_mask, callback, disable_pbar, seed, latent_shapes=latent_shapes)
+  File "/media/luna/work/tinker/ComfyUI/comfy/samplers.py", line 1237, in inner_sample
+    samples = executor.execute(self, sigmas, extra_args, callback, noise, latent_image, denoise_mask, disable_pbar)
+  File "/media/luna/work/tinker/ComfyUI/comfy/patcher_extension.py", line 113, in execute
+    return self.original(*args, **kwargs)
+           ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/media/luna/work/tinker/ComfyUI/comfy/samplers.py", line 1005, in sample
+    samples = self.sampler_function(model_k, noise, sigmas, extra_args=extra_args, callback=k_callback, disable=disable_pbar, **self.extra_options)
+  File "/media/luna/work/tinker/ComfyUI/develop/experiments/2026-09-29/tiled_test.py", line 83, in sample
+    return kds.sample_er_sde(denoise, x, sigmas, extra_args=extra_args, callback=callback, disable=disable)
+           ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/media/luna/work/tinker/ComfyUI/venv/lib/python3.13/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+  File "/media/luna/work/tinker/ComfyUI/comfy/k_diffusion/sampling.py", line 1619, in sample_er_sde
+    denoised = model(x, sigmas[i] * s_in, **extra_args)
+  File "/media/luna/work/tinker/ComfyUI/develop/experiments/2026-09-29/tiled_test.py", line 70, in denoise
+    d_tiles = model(torch.cat(tiles, 0), sigma.repeat(len(tiles)), **kwargs)
+  File "/media/luna/work/tinker/ComfyUI/comfy/samplers.py", line 640, in __call__
+    out = self.inner_model(x, sigma, model_options=model_options, seed=seed)
+  File "/media/luna/work/tinker/ComfyUI/comfy/samplers.py", line 1208, in __call__
+    return self.outer_predict_noise(*args, **kwargs)
+           ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/media/luna/work/tinker/ComfyUI/comfy/samplers.py", line 1215, in outer_predict_noise
+    ).execute(x, timestep, model_options, seed)
+      ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/media/luna/work/tinker/ComfyUI/comfy/patcher_extension.py", line 113, in execute
+    return self.original(*args, **kwargs)
+           ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/media/luna/work/tinker/ComfyUI/comfy/samplers.py", line 1218, in predict_noise
+    return sampling_function(self.inner_model, x, timestep, self.conds.get("negative", None), self.conds.get("positive", None), self.cfg, model_options=model_options, seed=seed)
+  File "/media/luna/work/tinker/ComfyUI/comfy/samplers.py", line 620, in sampling_function
+    out = calc_cond_batch(model, conds, x, timestep, model_options)
+  File "/media/luna/work/tinker/ComfyUI/comfy/samplers.py", line 211, in calc_cond_batch
+    return _calc_cond_batch_outer(model, conds, x_in, timestep, model_options)
+  File "/media/luna/work/tinker/ComfyUI/comfy/samplers.py", line 219, in _calc_cond_batch_outer
+    return executor.execute(model, conds, x_in, timestep, model_options)
+           ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/media/luna/work/tinker/ComfyUI/comfy/patcher_extension.py", line 113, in execute
+    return self.original(*args, **kwargs)
+           ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/media/luna/work/tinker/ComfyUI/comfy/samplers.py", line 335, in _calc_cond_batch
+    output = model.apply_model(input_x, timestep_, **c).chunk(batch_chunks)
+             ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/media/luna/work/tinker/ComfyUI/comfy/model_base.py", line 210, in apply_model
+    return comfy.patcher_extension.WrapperExecutor.new_class_executor(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    ...<2 lines>...
+        comfy.patcher_extension.get_all_wrappers(comfy.patcher_extension.WrappersMP.APPLY_MODEL, transformer_options)
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    ).execute(x, t, c_concat, c_crossattn, control, transformer_options, **kwargs)
+    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/media/luna/work/tinker/ComfyUI/comfy/patcher_extension.py", line 113, in execute
+    return self.original(*args, **kwargs)
+           ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/media/luna/work/tinker/ComfyUI/comfy/model_base.py", line 254, in _apply_model
+    model_output = self.diffusion_model(xc, t, context=context, control=control, transformer_options=transformer_options, **extra_conds)
+  File "/media/luna/work/tinker/ComfyUI/venv/lib/python3.13/site-packages/torch/nn/modules/module.py", line 1778, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/media/luna/work/tinker/ComfyUI/venv/lib/python3.13/site-packages/torch/nn/modules/module.py", line 1789, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/media/luna/work/tinker/ComfyUI/comfy/ldm/krea2/model.py", line 277, in forward
+    return comfy.patcher_extension.WrapperExecutor.new_class_executor(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    ...<2 lines>...
+        comfy.patcher_extension.get_all_wrappers(comfy.patcher_extension.WrappersMP.DIFFUSION_MODEL, transformer_options),
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    ).execute(x, timesteps, context, attention_mask, ref_latents, transformer_options, **kwargs)
+    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/media/luna/work/tinker/ComfyUI/comfy/patcher_extension.py", line 113, in execute
+    return self.original(*args, **kwargs)
+           ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/media/luna/work/tinker/ComfyUI/comfy/ldm/krea2/model.py", line 368, in _forward
+    combined = block(combined, tvec, freqs, None, timestep_zero_index=timestep_zero_index, transformer_options=transformer_options)
+  File "/media/luna/work/tinker/ComfyUI/venv/lib/python3.13/site-packages/torch/nn/modules/module.py", line 1778, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/media/luna/work/tinker/ComfyUI/venv/lib/python3.13/site-packages/torch/nn/modules/module.py", line 1789, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/media/luna/work/tinker/ComfyUI/comfy/ldm/krea2/model.py", line 215, in forward
+    x = x + postgate * self.mlp((1 + postscale) * self.postnorm(x) + postshift)
+                       ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/media/luna/work/tinker/ComfyUI/venv/lib/python3.13/site-packages/torch/nn/modules/module.py", line 1778, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/media/luna/work/tinker/ComfyUI/venv/lib/python3.13/site-packages/torch/nn/modules/module.py", line 1789, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/media/luna/work/tinker/ComfyUI/comfy/ldm/krea2/model.py", line 59, in forward
+    return self.down(F.silu(self.gate(x)).mul_(self.up(x)))
+                     ~~~~~~^^^^^^^^^^^^^^
+  File "/media/luna/work/tinker/ComfyUI/venv/lib/python3.13/site-packages/torch/nn/functional.py", line 2451, in silu
+    return torch._C._nn.silu(input)
+           ~~~~~~~~~~~~~~~~~^^^^^^^
+torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 796.00 MiB. GPU 0 has a total capacity of 15.98 GiB of which 258.00 MiB is free. Of the allocated memory 12.39 GiB is allocated by PyTorch, and 630.68 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)

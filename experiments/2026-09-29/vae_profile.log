@@ -1,0 +1,108 @@
+[0mdirenv: loading /media/luna/work/tinker/ComfyUI/.envrc
+[0mdirenv: using flake ./nix
+[0mdirenv: nix-direnv: Using cached dev shell
+ComfyUI ROCm 7.2.53211 shell (gfx906)
+hipcc: /nix/store/mam4a3wdd1rls10jm1vvb3pw8lbz2ivr-clr-7.2.3/bin/hipcc
+HIP version: 7.2.53211-9999
+nixpkgs-AMD clang version 22.0.0 (https://github.com/ROCm/llvm-project/tree/rocm-7.2.3 rocm-7.2.3)
+Target: x86_64-unknown-linux-gnu
+Thread model: posix
+InstalledDir: /nix/store/sphzxfs5f2w29fx0fhs0pn42yyxfyp8h-rocm-toolchain/bin
+Configuration file: /nix/store/sphzxfs5f2w29fx0fhs0pn42yyxfyp8h-rocm-toolchain/bin/x86_64-unknown-linux-gnu.cfg
+
+[37mROCk module is loaded[0m
+=====================    
+HSA System Attributes    
+=====================    
+Runtime Version:         1.18
+Runtime Ext Version:     1.15
+System Timestamp Freq.:  1000.000000MHz
+Sig. Max Wait Duration:  18446744073709551615 (0xFFFFFFFFFFFFFFFF) (timestamp count)
+Machine Model:           LARGE                              
+System Endianness:       LITTLE                             
+
+ROCM_ROOT        = /nix/store/mam4a3wdd1rls10jm1vvb3pw8lbz2ivr-clr-7.2.3
+HIPBLASLT_ROOT   = /nix/store/8plqmf5xmyyzi90zvf8fp3322lr2brb4-hipblaslt-7.2.3
+MIOPEN_ROOT      = /nix/store/yq3iql1j2sqjdq1hgfn6i39l1z62idrq-miopen-7.2.3
+CPU BLAS (LP64)  = /nix/store/dmsl71kqvflbda92d4w0qzmjx1mqj1p6-openblas-0.3.33/lib
+
+Ready.
+Checking AMD architecture for optimal settings...
+Detected AMD architecture: gfx906
+/media/luna/models/vae/qwenImageVAE_qwenImageVAE.safetensors
+Current Working Directory: /media/luna/work/tinker/ComfyUI
+{"weights_mb": 484.1}
+{"res": "2560x1440", "dir": "decode", "seconds": 3.46, "peak_gb": 2.65, "hooked_total_s": 3.5}
+      0.910 s   26.0%  x144   CausalConv3d 96->96 k(3, 3, 3) T1
+      0.748 s   21.4%  x360   CausalConv3d 384->384 k(3, 3, 3) T1
+      0.627 s   17.9%  x144   CausalConv3d 192->192 k(3, 3, 3) T1
+      0.314 s    9.0%  x720   RMS_norm
+      0.310 s    8.9%  x24    Conv2d 192->96 k(3, 3) T-
+      0.252 s    7.2%  x48    Conv2d 384->192 k(3, 3) T-
+      0.096 s    2.7%  x24    CausalConv3d 96->3 k(3, 3, 3) T1
+      0.078 s    2.2%  x24    AttentionBlock
+      0.072 s    2.1%  x696   SiLU
+      0.048 s    1.4%  x24    CausalConv3d 192->384 k(3, 3, 3) T1
+      0.014 s    0.4%  x72    Upsample
+      0.010 s    0.3%  x24    Conv2d 384->1152 k(1, 1) T-
+      0.008 s    0.2%  x24    CausalConv3d 192->384 k(1, 1, 1) T1
+      0.005 s    0.1%  x24    CausalConv3d 16->384 k(3, 3, 3) T1
+      0.004 s    0.1%  x24    Conv2d 384->384 k(1, 1) T-
+      0.003 s    0.1%  x24    CausalConv3d 16->16 k(1, 1, 1) T1
+{"res": "2560x1440", "dir": "encode", "seconds": 1.98, "peak_gb": 1.7, "hooked_total_s": 2.04}
+      0.606 s   29.7%  x96    CausalConv3d 96->96 k(3, 3, 3) T1
+      0.507 s   24.9%  x264   CausalConv3d 384->384 k(3, 3, 3) T1
+      0.313 s   15.4%  x72    CausalConv3d 192->192 k(3, 3, 3) T1
+      0.195 s    9.6%  x528   RMS_norm
+      0.077 s    3.8%  x24    AttentionBlock
+      0.055 s    2.7%  x24    CausalConv3d 96->192 k(3, 3, 3) T1
+      0.049 s    2.4%  x24    CausalConv3d 192->384 k(3, 3, 3) T1
+      0.044 s    2.2%  x504   SiLU
+      0.041 s    2.0%  x24    Conv2d 96->96 k(3, 3) T-
+      0.029 s    1.4%  x24    Conv2d 384->384 k(3, 3) T-
+      0.029 s    1.4%  x24    Conv2d 192->192 k(3, 3) T-
+      0.022 s    1.1%  x24    CausalConv3d 3->96 k(3, 3, 3) T1
+      0.018 s    0.9%  x72    ZeroPad2d
+      0.015 s    0.7%  x24    CausalConv3d 96->192 k(1, 1, 1) T1
+      0.013 s    0.6%  x24    CausalConv3d 384->32 k(3, 3, 3) T1
+      0.010 s    0.5%  x24    Conv2d 384->1152 k(1, 1) T-
+      0.008 s    0.4%  x24    CausalConv3d 192->384 k(1, 1, 1) T1
+      0.004 s    0.2%  x24    Conv2d 384->384 k(1, 1) T-
+      0.002 s    0.1%  x24    CausalConv3d 32->32 k(1, 1, 1) T1
+{"res": "3840x2160", "dir": "decode", "seconds": 7.72, "peak_gb": 2.77, "hooked_total_s": 7.77}
+      2.032 s   26.2%  x270   CausalConv3d 96->96 k(3, 3, 3) T1
+      1.668 s   21.5%  x675   CausalConv3d 384->384 k(3, 3, 3) T1
+      1.399 s   18.0%  x270   CausalConv3d 192->192 k(3, 3, 3) T1
+      0.694 s    8.9%  x45    Conv2d 192->96 k(3, 3) T-
+      0.676 s    8.7%  x1350  RMS_norm
+      0.564 s    7.3%  x90    Conv2d 384->192 k(3, 3) T-
+      0.213 s    2.7%  x45    CausalConv3d 96->3 k(3, 3, 3) T1
+      0.170 s    2.2%  x45    AttentionBlock
+      0.150 s    1.9%  x1305  SiLU
+      0.109 s    1.4%  x45    CausalConv3d 192->384 k(3, 3, 3) T1
+      0.029 s    0.4%  x135   Upsample
+      0.021 s    0.3%  x45    Conv2d 384->1152 k(1, 1) T-
+      0.017 s    0.2%  x45    CausalConv3d 192->384 k(1, 1, 1) T1
+      0.010 s    0.1%  x45    CausalConv3d 16->384 k(3, 3, 3) T1
+      0.009 s    0.1%  x45    Conv2d 384->384 k(1, 1) T-
+      0.006 s    0.1%  x45    CausalConv3d 16->16 k(1, 1, 1) T1
+{"res": "3840x2160", "dir": "encode", "seconds": 4.52, "peak_gb": 1.75, "hooked_total_s": 4.58}
+      1.378 s   30.1%  x180   CausalConv3d 96->96 k(3, 3, 3) T1
+      1.158 s   25.3%  x495   CausalConv3d 384->384 k(3, 3, 3) T1
+      0.697 s   15.2%  x135   CausalConv3d 192->192 k(3, 3, 3) T1
+      0.425 s    9.3%  x990   RMS_norm
+      0.180 s    3.9%  x45    AttentionBlock
+      0.122 s    2.7%  x45    CausalConv3d 96->192 k(3, 3, 3) T1
+      0.108 s    2.4%  x45    CausalConv3d 192->384 k(3, 3, 3) T1
+      0.094 s    2.1%  x945   SiLU
+      0.092 s    2.0%  x45    Conv2d 96->96 k(3, 3) T-
+      0.065 s    1.4%  x45    Conv2d 384->384 k(3, 3) T-
+      0.064 s    1.4%  x45    Conv2d 192->192 k(3, 3) T-
+      0.050 s    1.1%  x45    CausalConv3d 3->96 k(3, 3, 3) T1
+      0.040 s    0.9%  x135   ZeroPad2d
+      0.032 s    0.7%  x45    CausalConv3d 96->192 k(1, 1, 1) T1
+      0.026 s    0.6%  x45    CausalConv3d 384->32 k(3, 3, 3) T1
+      0.022 s    0.5%  x45    Conv2d 384->1152 k(1, 1) T-
+      0.017 s    0.4%  x45    CausalConv3d 192->384 k(1, 1, 1) T1
+      0.010 s    0.2%  x45    Conv2d 384->384 k(1, 1) T-
+      0.005 s    0.1%  x45    CausalConv3d 32->32 k(1, 1, 1) T1
