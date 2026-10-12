@@ -174,4 +174,19 @@ def main [comfy: path, --dry-run, --replace, --oc: path] {
         place-link $repo $comfy $l.link ($repo | path join $l.target) $dry_run $replace $backup
     }
     if $oc != null { oc-links $repo ($oc | path expand) $dry_run }
+    exclude-links $comfy $dry_run
+}
+
+# the links and the backup dir would show as untracked in the checkout; the local exclude file is
+# untracked itself, so this changes nothing upstream
+def exclude-links [comfy: path, dry: bool] {
+    let file = ($comfy | path join (^git -C $comfy rev-parse --git-path info/exclude | str trim))
+    let present = (if ($file | path exists) { open $file | lines } else { [] })
+    let wanted = ($LINKS | get link | each {|l| $"/($l)" } | append "/.rvii-backup/")
+    let missing = ($wanted | where {|w| $w not-in $present })
+    if ($missing | is-empty) { return }
+    act $dry $"exclude ($missing | length) paths in ($file)" {
+        mkdir ($file | path dirname)
+        $missing | prepend "# rvii-comfy deploy.nu links" | str join "\n" | $"\n($in)\n" | save --append $file
+    }
 }

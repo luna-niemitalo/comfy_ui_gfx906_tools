@@ -65,9 +65,11 @@ Run Krea2 (and other DiT image models) fast on 2x Radeon VII (gfx906) via a nati
   `third_party/nodes.toml` (+ patches for DepthAnythingV2/V3 and SPEED). OC content split into
   `../succubus-oc` (own repo, drafts gitignored). `deploy.nu` tested on scratch: fresh checkout (core files
   byte-identical to the live tree, rerun all "ok") and a live-like cutover with `--replace --oc` (backups,
-  develop/out moved, OC paths resolve). Live checkout NOT switched yet -- plan, awaiting Luna:
-  `git -C ComfyUI checkout -b rvii <BASE>` (rvii-perf kept as archive), `nu deploy.nu ../ComfyUI --replace
-  --oc ../succubus-oc`, `direnv allow` (.envrc becomes a link), first node load may rebuild the HIP extension.
+  develop/out moved, OC paths resolve). **Live checkout switched (Luna: go ahead)**: ComfyUI is on branch
+  `rvii` = BASE + the 5 patches (rvii-perf kept as archive; core files identical to it), our code linked in,
+  develop/out moved into rvii-comfy/develop/out, the old develop/ + node repos + nix/ in
+  `ComfyUI/.rvii-backup/20261012_171547/`, `direnv allow` done, imports checked (no GPU run yet; the first
+  node load may rebuild the HIP extension). Edit code in rvii-comfy (or through the links), commit HERE.
   No remote anywhere: a second copy is Luna's step.
 - **Last state** (before consolidation): all work committed (int4 node repo, `develop/` repo, `rvii-perf`).
   Batch split verified bit-identical. Fixed from Luna's workflow run: int4 text encoder
