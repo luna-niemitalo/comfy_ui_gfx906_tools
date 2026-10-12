@@ -390,6 +390,110 @@ Run Krea2 (and other DiT image models) fast on 2x Radeon VII (gfx906) via a nati
        two-level i24 sub-scales 35 (slower), NO rescale at all 41-43. The old "55 without scale
        math" ceiling isn't reproducible in the full kernel (loads/LDS dominate). Best realistic
        +11% on linears (~4%/step) needs a lossy format change -- not pursued.
+- **Scattered-token sampling (Luna's idea, 2026-09-30)**: fixed token budget per call drawn from
+  anywhere (Cycles-like spp, importance later) instead of windows. `develop/experiments/2026-09-30/
+  splat_test.py` (+ .log, images `develop/out/splat/`): tokens packed in a 1-token-high strip,
+  true (row, col) ids via `post_input`; clean context ring = Krea2 reference tokens at t=0
+  (`index_timestep_zero`, index 0), called via `apply_model` (== comfy path, exact). Findings,
+  native 1024x576: shuffled token order alone costs 0.14 (sigma 0.3) / 0.36 (0.6) of the
+  seed spread (fused attention's per-tile P scale / skip). Subset error vs full prediction,
+  sigma 0.3, 25% tokens: window 0.31; splats 1/2/3/4 tokens 0.80/0.73/0.64/0.60, with
+  1-token clean ring 0.50/0.50/0.46/0.40. Multi-pass renders from a 2x-degraded start
+  (sigma 0.5 -> 0.1, equal compute to 4 full passes): no context = mosaic garbage, context much
+  better (Luna); best: 3x3 splats, flat-top kernel, rim floor 0.25, shared noise, context
+  (structure incl. bridge restored, still mottled). cos kernel on 2x2 leaves pixels never
+  updated (mean weight ~0.23). PSNR and the 16 px seam index do NOT see the mosaic (garbled
+  22.8 dB vs seed spread 23.9) -- judge by eye. Proposed next: scattered splats only for the
+  low-sigma polish phase (start from the reference state at sigma ~0.2), 4x4 splats, 2-token
+  ring; hybrid = grow/tile for structure, splats for importance-driven refinement.
+  Part C done (`splat_test.py c`, `splat_test_c.log`, `out/splat/c_*.png`): 2 full passes
+  (sigma 0.5, 0.29) then 2 passes' worth of 25% splat calls at sigma 0.2 -> 0.1. No mosaic in
+  any variant; 4x4 box + 1-token ring closest to the full-pass polish (31.8 dB; seed spread 28.3);
+  no ring = faint grain in smooth areas (clouds). flat25 wastes compute (mean spp 1.18 vs box 2.0).
+  Every variant left some pixels at spp 0 (greedy gap placement doesn't guarantee coverage).
+  Caveat: at native size this polish changes little (full-pass polish 29 dB from its start) --
+  the real test is a growth target where the fine phase adds detail. Not yet judged by Luna.
+  **4K continuous queue** (`splat4k.py`, log + `out/splat4k/`, 2026-10-01): no passes; per
+  iteration 2 x 256 neediest 4x4 splats (priority (max change + 0.02) / (1 + min spp) per
+  footprint), one call per GPU (second on the row split's replica -- the split node sends
+  reference latents to one GPU), sigma = max(0.05, start * 0.7**spp), YaRN a1_b8 fixed s
+  (Luna's pick), anchor (sigma/0.5)^2. Reference = linear growth 2 GPUs 210-228 s (cached in
+  `out/splat4k/reference_state.pt`), noise 0.41, detail_720 9.43. Path A (growth to sigma 0.236
+  at 2816x1584, 80 s, Lanczos to 4K, queue from 0.2): at equal time noise 0.62, detail_720
+  10.3, structure kept; Luna: fog NOT degraded as in linear growth; fine grain in mist/water.
+  Path B (composition -> 4K, queue from 0.5): mosaic at full res, recomposed -- dead.
+  Throughput ~680 active tokens/s (growth tiles ~925): the ring costs attention.
+  Grain test (`splat4k_grain.log`, K=5 per Luna: ~10 s vs 12 s per iteration at equal active
+  tokens): settle = full-frame tiled sigma 0.05 pass after 1.0 x budget, 37 s -- image nearly
+  unchanged (noise 0.625 -> 0.635). accum = weighted running mean below sigma 0.12 (flat-top
+  rim 0.25; the kernel can't reach past the splat: ring tokens are t=0 inputs, no output) --
+  slightly smoother fog, detail_720 9.6 vs 10.3 replace, noise not lower (0.67). At 2x zoom:
+  growth's fog has diagonal streaks, splat fog is even; growth's stones crisper, splat stones a
+  bit mushy. Luna: replace good; accum marginally better, not worth the time.
+- **Zoom detailing (Luna, 2026-10-01)**: `develop/experiments/2026-09-30/zoom_test.py detect|render`
+  (logs `zoom_*.log`, `out/zoom/`). detect: native SAM3 on Meta's `sam3.pt` (its text_projection
+  [512,1024] must be dropped -- comfy's wrapper builds [1024,1024], unused), 1080 px tiles over the
+  4K image, per concept "rock:300 / person:5 / bird:80", coarse masks, NMS: 66 s. Found birds and
+  the traveller well, many causeway stones; false persons (sky, pillar, treeline), "birds" = rocks
+  in water. The blurry far-shore rocks Luna wanted are NOT found (too degraded to recognise).
+  render: crop side 1024/m (m = clamp(160 / object px, 1.5, 4)), Lanczos up, sigma 0.4, 4 er_sde
+  steps, low band anchored to the crop shrunk by m, concept phrase + detail prompt, Lanczos down,
+  blend region (box feather) or mask (SAM mask dilated 4 px): ~10 s per crop, 2 GPUs. Stones and
+  water rocks come out crisper (subtle); region blend on a false "person" (treeline) INVENTED a
+  figure -- concept prompts on false positives create the object. Luna's mutual exclusivity
+  (each concept's mask minus the others'; drop boxes covered more by other concepts): person
+  17 -> 5, bird 37 -> 7 (rocks in water gone), rock 198 -> 162; bird crops then real, crisper.
+  **Attention maps** (`attn_map.py`, `out/attn_map/`): attn1 patch sums true-softmax image->text
+  mass over heads/blocks (fp32 from the hook's q/k; Krea2 text = 140 tokens after the template,
+  checked). Composition at sigma 0.9/0.6/0.3: traveller/coat/figure, causeway, arches,
+  mountains, sky, horizon, reeds, stones, water land right; birds weak. Far shore = "valley"
+  (+ "mist"); Luna: "stones" at sigma 0.9 glows faintly there (early intent).
+  **Region zoom** (`zoom_test.py region valley`): region = tokens whose dominant word (share
+  among 17 words, sigma 0.6) is the target (a 0.3 share threshold caught 3 tokens), 15 crops of
+  336 px (m 3), ~12 s each, change confined to the softened region. Luna: crop 12 "damn
+  impressive, it found the rocks"; crop 13 invented ruins -- "arches" in its prompt. Tried:
+  mean share top-3 (arches), multi-sigma max (arches, never stones), dominance >= 10% of crop
+  tokens (arches), dominance inside the region only (arches -- and a tiny figure). Open; proposed:
+  structure words need presence at sigma 0.3, material words may come from early intent.
+- **LLM training throughput (Luna, 2026-10-11; target 4B+)**: `develop/experiments/2026-10-11/`
+  (`RESULTS.md` = the table; `dual_bench.py` runs one process per card, host-staged only, through
+  mantlecore's `tools/gpu_run.nu --card 0 --card 1 --hip-on-display`). Per card, 4096-token step:
+  4B full fp16 147 tok/s, LoRA int4 base 166; 8B LoRA int4 170. Both cards at once: no slowdown,
+  PCIe 7.17 GB/s each, exchange hides behind backward. Attention (torch math SDPA, the only
+  gfx906 path) is 54-89% of a block; ~185 ms of the 4B block unexplained. bf16 unusable
+  (4-5 TFLOPS, wgrad 0.2). Biggest lever: a fused attention backward (projected 3-4x, not built).
+- **Training attention built (2026-10-11)**: `custom_nodes/ComfyUI-Gfx906Int4/csrc/attention_train.hip`
+  + `train_attention.py` (fwd + bwd, causal, GQA, strided [B, L, H, 128] fp16; FA2 split, no
+  global float atomics on gfx906). Design, numbers and the proposed dkdv v2: that repo's
+  DESIGN.md. Gate + bench: `develop/experiments/2026-10-11/attn_train_test.py`. Blocks 2.8-3.8x
+  faster (4B LoRA int4 657 -> 172 ms); 2 cards ~786-1143 tok/s for 4B (RESULTS.md 1b). Luna's
+  rules: kernels in HIP only, AMD LLVM AMDGPU docs as the reference, ../triton-gfx906 read-only.
+  v2 backward done (rows in registers over 8 lanes, DPP reduce-scatter, 512-thread WGs, 2 waves/SIMD):
+  fwd+bwd L 4096 112 -> 82 ms; 4B LoRA int4 block 147 ms (SDPA 657), 4B 2 cards ~1300 tok/s.
+  Next options: fwd v2 (same layout), or the linears (fp16 wgrad layouts) -- DESIGN.md "Next".
+- **Training plan (Luna: full fine-tune, 2026-10-11)**, RESULTS.md 4-5: activations 0.55 GiB/layer
+  at 4B x 4096 tok -> checkpointing mandatory; pick = 2-stage pipeline, fp16 w+g on GPU, optimizer on
+  host (fp32 master + 8-bit moments, ~24 GB RAM), ~700 tok/s. fp16 linears near torch's ceiling
+  (4B wgrad 15-19 TFLOPS). quant_study on real Qwen3-4B tensors (/media/luna/models/text_encoders/
+  qwen_3_4b.safetensors; tokenizer = comfy qwen25_tokenizer, NOT qwen35: vocab 151,936 vs 248k):
+  int4 b16 ~= NVFP4 error. Proposed next: fp16 fprop + int4 b16 dgrad/wgrad (SR, RHT16), gated by
+  short Qwen3-4B fine-tune loss curves vs fp16. Luna also asked about architecture extension:
+  LLaMA Pro block expansion fits (frozen int4 base + new fp16 blocks).
+  Luna: HIP P2P into card1 is proven and fast; the gpu-lock rule still forbids it on the display
+  card until she changes that file.
+- **int4 training backward built (node repo f20cfc6, 2026-10-11)**: `train_linear.py` (fp16 fwd,
+  int4 b16 dgrad + wgrad, SR on dY, RHT16 on wgrad inputs), `csrc/int4_train_quant.hip`, gemm_int4
+  `qblock=16`. Gate `develop/experiments/2026-10-11/int4_train_test.py`: all pass (kernel error ==
+  emulation's; SR unbiased; b16 GEMM 1e-6). dgrad+wgrad 1.15-1.34x fp16 incl. quantization (not yet
+  profiled: per-call W^T requant, 2 waves at 114 VGPRs). Side fix: the production int4 GEMM had 32
+  B/lane scratch (select-of-address); clamped loads, bit-identical -- not yet re-timed for Krea2.
+  `train_gate.py` DONE (card0, RESULTS.md 6): 150 steps on real Qwen3-4B, every int4 arm within
+  +0.001-0.003 val loss of fp16 (0.9091; real-kernel arm 0.9102), no divergence; ablations (RTN vs
+  SR vs RHT) don't separate at this length. End to end the kernel arm was slower (14.6 vs 11.9 s/step
+  incl. host optimizer): per-call W^T requant + quantizers -- profile next.
+  **Crash 22:47**: an emulation ablation on card1 (display) -- plain torch compute -- took card1 off
+  the PCIe bus, machine rebooted. Luna: don't run on the display GPU. `gpu_run.nu` buffers output
+  until exit: long runs redirect inside the command (`sh -c "python ... > log"`).
 - **Next step**: finish 1a/2 runs, analyze; VAE items in parallel (CPU/code reading);
   later prep kernel, scale-math.
 - **Hazards**:
